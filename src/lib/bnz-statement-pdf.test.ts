@@ -1,5 +1,21 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+const pdfRuntime = vi.hoisted(() => ({ loaded: false }));
+
+vi.mock("pdfjs-dist/legacy/build/pdf.mjs", () => {
+  pdfRuntime.loaded = true;
+  return { GlobalWorkerOptions: {}, getDocument: vi.fn() };
+});
+
+vi.mock("pdfjs-dist/legacy/build/pdf.worker.min.mjs?url", () => ({ default: "/pdf.worker.mjs" }));
+
 import { rowsFromPositionedItems } from "./bnz-statement-pdf";
+
+describe("PDF runtime", () => {
+  it("loads with the statement module instead of waiting for a PDF upload", () => {
+    expect(pdfRuntime.loaded).toBe(true);
+  });
+});
 
 describe("rowsFromPositionedItems", () => {
   it("maps positioned BNZ text into the six statement columns", () => {

@@ -1,4 +1,10 @@
+import * as pdfjs from "pdfjs-dist/legacy/build/pdf.mjs";
+import pdfWorkerUrl from "pdfjs-dist/legacy/build/pdf.worker.min.mjs?url";
 import { parseBnzStatement, type BnzStatementRow, type ParsedBnzStatement } from "./bnz-statement-parser";
+
+if (typeof window !== "undefined") {
+  pdfjs.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
+}
 
 export type PositionedTextItem = {
   str: string;
@@ -65,11 +71,6 @@ export function rowsFromPositionedItems(items: PositionedTextItem[]): BnzStateme
 }
 
 export async function extractBnzStatement(file: File): Promise<ParsedBnzStatement> {
-  const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
-  if (typeof window !== "undefined") {
-    const workerModule = await import("pdfjs-dist/legacy/build/pdf.worker.min.mjs?url");
-    pdfjs.GlobalWorkerOptions.workerSrc = workerModule.default;
-  }
   const document = await pdfjs.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise;
   const rows: BnzStatementRow[] = [];
   const statementText: string[] = [];

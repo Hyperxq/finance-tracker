@@ -298,7 +298,7 @@ export function ReceiptWorkspace({
       </aside>
 
       {activeView === "bank" ? (
-        <main className="workspace bank-workspace" id="bank"><BankWorkspace store={bankStore} /></main>
+        <main className="workspace bank-workspace" id="bank"><BankWorkspace memberName={memberName} store={bankStore} /></main>
       ) : (
       <main className="workspace" id="add">
         {!receipt ? (

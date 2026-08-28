@@ -90,6 +90,15 @@ describe("BankWorkspace", () => {
     expect(screen.getByLabelText("Choose bank statement PDF")).toBeEnabled();
   });
 
+  it("prefills a new card with the signed-in household member", async () => {
+    const user = userEvent.setup();
+    render(<BankWorkspace memberName="Daniel" />);
+
+    await user.click(screen.getByRole("button", { name: /add card/i }));
+
+    expect(screen.getByLabelText("Card holder")).toHaveValue("Daniel");
+  });
+
   it("loads the household bank history from Supabase", async () => {
     const store: FinanceStore = {
       loadBankData: vi.fn().mockResolvedValue({
@@ -108,6 +117,37 @@ describe("BankWorkspace", () => {
     expect(screen.getByRole("region", { name: /bank summary/i })).toHaveTextContent("NZ$40.00");
     expect(screen.getByRole("region", { name: /household cards/i })).toHaveTextContent("Everyday");
     expect(screen.getByRole("region", { name: /monthly bank statements/i })).toHaveTextContent("YouMoney.pdf");
+  });
+
+  it("filters household spending by card holder", async () => {
+    const user = userEvent.setup();
+    const store: FinanceStore = {
+      loadBankData: vi.fn().mockResolvedValue({
+        cards: [
+          { id: "daniel-card", issuer: "BNZ", nickname: "Daniel Visa", holder: "Daniel", lastFour: "1234" },
+          { id: "andrea-card", issuer: "BNZ", nickname: "Andrea Visa", holder: "Andrea", lastFour: "5678" },
+        ],
+        statements: [],
+        transactions: [
+          { id: "daniel-spend", cardId: "daniel-card", date: "2026-08-03", merchant: "CAFE", category: "Eating out", amount: 30 },
+          { id: "andrea-spend", cardId: "andrea-card", date: "2026-08-04", merchant: "WOOLWORTHS", category: "Groceries", amount: 40 },
+        ],
+      }),
+      saveReceipt: vi.fn(),
+      saveCard: vi.fn(),
+      importStatement: vi.fn(),
+    };
+    render(<BankWorkspace memberName="Daniel" store={store} />);
+
+    const summary = screen.getByRole("region", { name: /bank summary/i });
+    await waitFor(() => expect(summary).toHaveTextContent("NZ$70.00"));
+
+    await user.selectOptions(screen.getByLabelText("Filter by member"), "Andrea");
+
+    expect(summary).toHaveTextContent("NZ$40.00");
+    expect(summary).toHaveTextContent("1 transactions");
+    expect(screen.getByRole("region", { name: /merchant spending/i })).toHaveTextContent("WOOLWORTHS");
+    expect(screen.getByRole("region", { name: /merchant spending/i })).not.toHaveTextContent("CAFE");
   });
 
   it("matches an uploaded statement to an existing card by exact last four digits", async () => {

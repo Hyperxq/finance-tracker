@@ -13,6 +13,8 @@ type AppProps = {
 const oauthErrorKeys = ["error", "error_code", "error_description", "sb"];
 
 function consumeOAuthError() {
+  if (typeof window === "undefined") return "";
+
   const url = new URL(window.location.href);
   const hashParameters = new URLSearchParams(url.hash.replace(/^#/, ""));
   const error = url.searchParams.get("error") ?? hashParameters.get("error");

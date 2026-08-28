@@ -70,7 +70,10 @@ describe("createHouseholdAuth", () => {
 
     expect(signInWithOAuth).toHaveBeenCalledWith({
       provider: "google",
-      options: { redirectTo: "https://example.test/finance-tracker/bank" },
+      options: {
+        redirectTo: "https://example.test/finance-tracker/bank",
+        queryParams: { prompt: "select_account" },
+      },
     });
   });
 

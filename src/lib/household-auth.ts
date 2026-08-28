@@ -48,7 +48,10 @@ export function createHouseholdAuth(
     async signIn() {
       const { error } = await client.auth.signInWithOAuth({
         provider: "google",
-        options: { redirectTo: redirectUrl() },
+        options: {
+          redirectTo: redirectUrl(),
+          queryParams: { prompt: "select_account" },
+        },
       });
       if (error) throw error;
     },

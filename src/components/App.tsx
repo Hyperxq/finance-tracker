@@ -10,6 +10,27 @@ type AppProps = {
   workspace?: ReactNode;
 };
 
+const oauthErrorKeys = ["error", "error_code", "error_description", "sb"];
+
+function consumeOAuthError() {
+  const url = new URL(window.location.href);
+  const hashParameters = new URLSearchParams(url.hash.replace(/^#/, ""));
+  const error = url.searchParams.get("error") ?? hashParameters.get("error");
+  const description = url.searchParams.get("error_description") ?? hashParameters.get("error_description");
+  if (!error && !description) return "";
+
+  oauthErrorKeys.forEach((key) => {
+    url.searchParams.delete(key);
+    hashParameters.delete(key);
+  });
+  url.hash = hashParameters.toString() ? `#${hashParameters.toString()}` : "";
+  window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+
+  return description?.toLowerCase().includes("not a member")
+    ? "This Google account is not part of Daniel & Andrea's household. Try again with an invited account."
+    : "Google sign-in was not completed. Try again with another account.";
+}
+
 export function App({ auth, workspace }: AppProps) {
   const householdAuth = useMemo(
     () => auth ?? createHouseholdAuth(getSupabaseClient()),
@@ -20,8 +41,10 @@ export function App({ auth, workspace }: AppProps) {
     [workspace],
   );
   const [access, setAccess] = useState<HouseholdAccess | null>(null);
+  const [oauthError, setOauthError] = useState(consumeOAuthError);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const visibleError = oauthError || error;
 
   const refreshAccess = useCallback(async () => {
     try {
@@ -39,6 +62,7 @@ export function App({ auth, workspace }: AppProps) {
 
   const signIn = async () => {
     setBusy(true);
+    setOauthError("");
     setError("");
     try {
       await householdAuth.signIn();
@@ -77,7 +101,7 @@ export function App({ auth, workspace }: AppProps) {
       <section className="auth-card" aria-live="polite">
         <div className="auth-mark"><LockKeyIcon size={34} weight="duotone" /></div>
         <p className="eyebrow">Private household ledger</p>
-        {!access && !error ? (
+        {!access && !visibleError ? (
           <>
             <h1>Opening your household</h1>
             <p>Checking your secure session…</p>
@@ -96,12 +120,12 @@ export function App({ auth, workspace }: AppProps) {
             <h1>Daniel &amp; Andrea’s finances, together</h1>
             <p>Receipts and bank activity stay inside your shared household.</p>
             <button className="primary-button auth-google" type="button" disabled={busy} onClick={() => void signIn()}>
-              <GoogleLogoIcon size={22} weight="bold" />{busy ? "Opening Google…" : "Continue with Google"}
+              <GoogleLogoIcon size={22} weight="bold" />{busy ? "Opening Google…" : oauthError ? "Try another Google account" : "Continue with Google"}
             </button>
             <small><ShieldCheckIcon size={17} weight="duotone" />Only invited household accounts can continue.</small>
           </>
         )}
-        {error && <div className="auth-error" role="alert">{error}</div>}
+        {visibleError && <div className="auth-error" role="alert">{visibleError}</div>}
       </section>
     </main>
   );

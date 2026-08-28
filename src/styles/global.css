@@ -59,6 +59,10 @@
   50% { background: var(--accent-deep); box-shadow: 0 0 0 8px rgba(167, 139, 250, 0.08); }
 }
 
+@keyframes auth-spin {
+  to { transform: rotate(360deg); }
+}
+
 * { box-sizing: border-box; }
 
 html { min-width: 320px; background: var(--canvas); }
@@ -81,6 +85,82 @@ button:active:not(:disabled), label.primary-button:active { transform: translate
 button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, label:focus-visible {
   outline: 3px solid rgba(167, 139, 250, 0.52);
   outline-offset: 3px;
+}
+
+.auth-shell {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  padding: 24px;
+  background:
+    radial-gradient(circle at 50% 12%, rgba(127, 86, 217, 0.19), transparent 34%),
+    var(--canvas);
+}
+
+.auth-card {
+  position: relative;
+  display: grid;
+  width: min(520px, 100%);
+  justify-items: center;
+  overflow: hidden;
+  padding: clamp(34px, 7vw, 58px);
+  border: 1px solid #3c3155;
+  border-radius: 32px;
+  background:
+    repeating-linear-gradient(0deg, transparent 0 43px, rgba(167, 139, 250, 0.035) 43px 44px),
+    var(--surface);
+  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.34);
+  text-align: center;
+}
+
+.auth-card::before {
+  position: absolute;
+  top: 0;
+  width: 138px;
+  height: 4px;
+  border-radius: 0 0 8px 8px;
+  background: var(--accent-strong);
+  content: "";
+}
+
+.auth-mark {
+  display: grid;
+  width: 66px;
+  height: 66px;
+  margin-bottom: 27px;
+  place-items: center;
+  border: 1px solid #4a3a69;
+  border-radius: 20px;
+  background: var(--accent-deep);
+  color: var(--accent-soft);
+}
+
+.auth-card .eyebrow { margin: 0 0 14px; color: var(--accent); }
+.auth-card h1 { max-width: 430px; margin: 0; font-size: clamp(30px, 6vw, 48px); line-height: 0.98; letter-spacing: -0.065em; }
+.auth-card > p:not(.eyebrow) { max-width: 390px; margin: 22px 0 30px; color: var(--muted); font-size: 16px; line-height: 1.65; }
+.auth-card > p strong { color: var(--ink); overflow-wrap: anywhere; }
+.auth-card .primary-button, .auth-card .secondary-button { width: 100%; min-height: 58px; }
+.auth-google { margin-top: 4px; }
+.auth-card > small { display: flex; align-items: center; gap: 7px; margin-top: 19px; color: var(--quiet); }
+
+.auth-loader {
+  width: 28px;
+  height: 28px;
+  border: 3px solid var(--line);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: auth-spin 700ms linear infinite;
+}
+
+.auth-error {
+  width: 100%;
+  margin-top: 22px;
+  padding: 13px 15px;
+  border: 1px solid #6f342f;
+  border-radius: 12px;
+  background: var(--danger-bg);
+  color: var(--danger);
+  font-size: 13px;
 }
 
 .app-shell {
@@ -149,6 +229,19 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 }
 .household-profile div { display: grid; gap: 3px; }
 .household-profile small { color: var(--quiet); }
+.household-profile button {
+  margin-left: auto;
+  padding: 7px;
+  border: 0;
+  background: transparent;
+  color: var(--quiet);
+  cursor: pointer;
+  font-size: 11px;
+}
+.household-profile button:hover { color: var(--ink); }
+.compact-error, .bank-data-error, .card-form-error { color: var(--danger); }
+.compact-error, .bank-data-error { margin-top: 14px; }
+.card-form-error { grid-column: 1 / -1; font-size: 12px; }
 
 .workspace { min-width: 0; padding: 38px clamp(28px, 3vw, 42px) 56px; view-transition-name: ledger-workspace; }
 .upload-view, .review-view { width: min(1090px, 100%); margin: 0 auto; }
@@ -682,7 +775,11 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .app-shell { grid-template-columns: 1fr; }
   .sidebar { position: static; display: grid; grid-template-columns: 1fr auto; height: auto; padding: 18px 20px; border-right: 0; border-bottom: 1px solid var(--line); }
   .primary-nav { grid-column: 1 / -1; grid-template-columns: repeat(3, 1fr); margin-top: 18px; }
-  .sidebar-utility, .household-profile { display: none; }
+  .sidebar-utility { display: none; }
+  .household-profile { display: flex; grid-column: 2; grid-row: 1; padding-top: 0; }
+  .household-profile > span { width: 38px; height: 38px; }
+  .household-profile div { display: none; }
+  .household-profile button { color: var(--muted); font-size: 12px; }
   .workspace { padding: 32px 20px 48px; }
   .page-header h1, .review-header h1 { letter-spacing: -0.065em; }
   .review-kicker time { display: none; }

@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ParsedBnzStatement } from "../lib/bnz-statement-parser";
+import type { FinanceStore } from "../lib/finance-store";
 import { BankWorkspace } from "./BankWorkspace";
 
 if (!File.prototype.arrayBuffer) {
@@ -87,6 +88,26 @@ describe("BankWorkspace", () => {
     expect(screen.getByRole("region", { name: /household cards/i })).toHaveTextContent("No cards yet");
     expect(screen.getByRole("region", { name: /monthly bank statements/i })).toHaveTextContent("Choose the original PDF downloaded from BNZ");
     expect(screen.getByLabelText("Choose bank statement PDF")).toBeEnabled();
+  });
+
+  it("loads the household bank history from Supabase", async () => {
+    const store: FinanceStore = {
+      loadBankData: vi.fn().mockResolvedValue({
+        cards: [{ id: "card-1", issuer: "BNZ", nickname: "Everyday", holder: "Andrea", lastFour: "0245" }],
+        statements: [{ id: "statement-1", cardId: "card-1", fileName: "YouMoney.pdf", fingerprint: "a".repeat(64), periodStart: "2026-07-25", periodEnd: "2026-08-24", status: "Imported" }],
+        transactions: [{ id: "transaction-1", cardId: "card-1", date: "2026-08-03", merchant: "WOOLWORTHS", category: "Groceries", amount: 40 }],
+      }),
+      saveReceipt: vi.fn(),
+      saveCard: vi.fn(),
+      importStatement: vi.fn(),
+    };
+
+    render(<BankWorkspace store={store} />);
+
+    expect(await screen.findAllByText("WOOLWORTHS")).toHaveLength(2);
+    expect(screen.getByRole("region", { name: /bank summary/i })).toHaveTextContent("NZ$40.00");
+    expect(screen.getByRole("region", { name: /household cards/i })).toHaveTextContent("Everyday");
+    expect(screen.getByRole("region", { name: /monthly bank statements/i })).toHaveTextContent("YouMoney.pdf");
   });
 
   it("matches an uploaded statement to an existing card by exact last four digits", async () => {

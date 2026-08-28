@@ -150,6 +150,31 @@ describe("ReceiptWorkspace", () => {
     expect(screen.getByLabelText("Merchant")).toHaveValue("Woolworths Riccarton");
   });
 
+  it("saves a confirmed receipt and its reviewed items to the household", async () => {
+    const user = userEvent.setup();
+    const recognize = vi.fn().mockResolvedValue({ text: OCR_TEXT, confidence: 96 });
+    const saveReceipt = vi.fn().mockResolvedValue("receipt-1");
+    render(<ReceiptWorkspace recognize={recognize} receiptStore={{ saveReceipt }} />);
+
+    await user.upload(
+      screen.getByLabelText(/choose receipt photo/i),
+      new File(["receipt"], "receipt.png", { type: "image/png" }),
+    );
+    await user.click(await screen.findByRole("button", { name: /confirm 2 items/i }));
+
+    await waitFor(() => expect(saveReceipt).toHaveBeenCalledWith(expect.objectContaining({
+      merchant: "PAK N SAVE RICCARTON",
+      receiptNumber: "0201288681",
+      purchasedAt: "2023-03-12T21:18:50",
+      total: 20.38,
+      confidence: 96,
+      items: expect.arrayContaining([
+        expect.objectContaining({ name: "TAYLOR FARMS SLAH (WD", amount: 5.99 }),
+      ]),
+    })));
+    expect(await screen.findByText(/saved to your household/i)).toBeInTheDocument();
+  });
+
   it("marks even a one-cent edit as mismatched until the totals agree", async () => {
     const user = userEvent.setup();
     const recognize = vi.fn().mockResolvedValue({ text: OCR_TEXT, confidence: 96 });

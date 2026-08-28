@@ -1,4 +1,3 @@
-// @ts-expect-error Vitest runs in Node while the application excludes Node typings.
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
@@ -44,5 +43,11 @@ describe("Bank dashboard responsive containment", () => {
 
   it("shares the small-spend chart width between every day", () => {
     expect(stylesheet).toMatch(/\.small-spend-pulse li\s*\{[^}]*min-width:\s*0;[^}]*flex:\s*1 1 0;[^}]*width:\s*auto;/s);
+  });
+});
+
+describe("Household account controls", () => {
+  it("keeps sign out available in the mobile header", () => {
+    expect(stylesheet).toMatch(/@media \(max-width: 900px\)[\s\S]*?\.household-profile\s*\{[^}]*display:\s*flex;[^}]*grid-column:\s*2;[^}]*grid-row:\s*1;/);
   });
 });

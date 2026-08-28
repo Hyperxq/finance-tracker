@@ -11,36 +11,15 @@ import {
   WarningCircleIcon,
   XIcon,
 } from "@phosphor-icons/react";
-import { useMemo, useRef, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { extractBnzStatement } from "../lib/bnz-statement-pdf";
 import type { BnzTransaction, ParsedBnzStatement } from "../lib/bnz-statement-parser";
-
-type HouseholdCard = {
-  id: string;
-  issuer: string;
-  nickname: string;
-  holder: string;
-  lastFour: string;
-};
-
-type Transaction = {
-  id: string;
-  cardId: string;
-  date: string;
-  merchant: string;
-  category: string;
-  amount: number;
-};
-
-type Statement = {
-  id: string;
-  cardId: string;
-  fileName: string;
-  fingerprint: string;
-  periodStart: string;
-  periodEnd: string;
-  status: "Imported";
-};
+import type {
+  BankStatement as Statement,
+  BankTransaction as Transaction,
+  FinanceStore,
+  HouseholdCard,
+} from "../lib/finance-store";
 
 type ReviewTransaction = BnzTransaction & { included: boolean };
 
@@ -53,6 +32,7 @@ type StatementReview = Omit<ParsedBnzStatement, "transactions"> & {
 
 type BankWorkspaceProps = {
   extractStatement?: (file: File) => Promise<ParsedBnzStatement>;
+  store?: FinanceStore;
 };
 
 const money = (amount: number) => `NZ$${amount.toFixed(2)}`;
@@ -74,7 +54,7 @@ const scrollToImportedActivity = (element: HTMLElement | null) => {
   element?.scrollIntoView({ behavior: reducedMotion ? "auto" : "smooth", block: "start" });
 };
 
-export function BankWorkspace({ extractStatement = extractBnzStatement }: BankWorkspaceProps) {
+export function BankWorkspace({ extractStatement = extractBnzStatement, store }: BankWorkspaceProps) {
   const statementInputRef = useRef<HTMLInputElement>(null);
   const importedActivityRef = useRef<HTMLElement>(null);
   const [cards, setCards] = useState<HouseholdCard[]>([]);
@@ -92,6 +72,29 @@ export function BankWorkspace({ extractStatement = extractBnzStatement }: BankWo
   const [isReadingStatement, setIsReadingStatement] = useState(false);
   const [statementReview, setStatementReview] = useState<StatementReview | null>(null);
   const [cardDraft, setCardDraft] = useState({ nickname: "", holder: "", lastFour: "" });
+  const [dataError, setDataError] = useState("");
+  const [cardError, setCardError] = useState("");
+  const [isSavingCard, setIsSavingCard] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
+
+  useEffect(() => {
+    if (!store) return;
+    let active = true;
+    setDataError("");
+    store.loadBankData()
+      .then((data) => {
+        if (!active) return;
+        setCards(data.cards);
+        setStatements(data.statements);
+        setAllTransactions(data.transactions);
+        const latestMonth = [...new Set(data.transactions.map((transaction) => transaction.date.slice(0, 7)))].sort().reverse()[0];
+        if (latestMonth) setSelectedMonth((current) => current || latestMonth);
+      })
+      .catch(() => {
+        if (active) setDataError("Your saved bank activity could not be loaded. Check your connection and try again.");
+      });
+    return () => { active = false; };
+  }, [store]);
 
   const availableMonths = useMemo(() => [...new Set(allTransactions.map((transaction) => transaction.date.slice(0, 7)))].sort().reverse(), [allTransactions]);
   const rangeIsInvalid = Boolean(rangeStart && rangeEnd && rangeStart > rangeEnd);
@@ -144,23 +147,33 @@ export function BankWorkspace({ extractStatement = extractBnzStatement }: BankWo
       ? monthName(selectedMonth)
       : "No imported data";
 
-  const saveCard = (event: FormEvent) => {
+  const saveCard = async (event: FormEvent) => {
     event.preventDefault();
     const lastFour = cardDraft.lastFour.replace(/\D/g, "").slice(-4);
     if (!cardDraft.nickname.trim() || !cardDraft.holder.trim() || lastFour.length !== 4) return;
-    const card: HouseholdCard = {
-      id: `card-${Date.now()}`,
+    setCardError("");
+    setIsSavingCard(true);
+    const payload = {
       issuer: "BNZ",
       nickname: cardDraft.nickname.trim(),
       holder: cardDraft.holder.trim(),
       lastFour,
     };
+    let card: HouseholdCard;
+    try {
+      card = store ? await store.saveCard(payload) : { id: `card-${Date.now()}`, ...payload };
+    } catch {
+      setCardError("The card could not be saved. Check for a duplicate card and try again.");
+      setIsSavingCard(false);
+      return;
+    }
     setCards((current) => [...current, card]);
     if (cardFormContext === "statement") {
       setStatementReview((current) => current ? { ...current, cardId: card.id } : current);
     }
     setCardDraft({ nickname: "", holder: "", lastFour: "" });
     setCardFormContext(null);
+    setIsSavingCard(false);
   };
 
   const uploadStatement = async (file: File) => {
@@ -223,9 +236,33 @@ export function BankWorkspace({ extractStatement = extractBnzStatement }: BankWo
       : "Select at least one expense to import."
     : "";
 
-  const confirmStatement = () => {
-    if (!statementReview || reviewIssue) return;
+  const confirmStatement = async () => {
+    if (!statementReview || reviewIssue || isImporting) return;
+    setIsImporting(true);
+    setUploadError("");
     const importedAt = Date.now();
+    let statementId = `statement-${importedAt}`;
+    try {
+      if (store) {
+        statementId = await store.importStatement({
+          cardId: statementReview.cardId,
+          fileName: statementReview.fileName,
+          fingerprint: statementReview.fingerprint,
+          periodStart: statementReview.periodStart,
+          periodEnd: statementReview.periodEnd,
+          transactions: includedReviewTransactions.map((transaction) => ({
+            date: transaction.date,
+            merchant: transaction.merchant.trim(),
+            category: transaction.category,
+            amount: transaction.amount,
+          })),
+        });
+      }
+    } catch {
+      setUploadError("The statement could not be saved. It may already exist, or your connection was interrupted.");
+      setIsImporting(false);
+      return;
+    }
     const imported = includedReviewTransactions.map<Transaction>((transaction, index) => ({
       id: `statement-${importedAt}-${index}`,
       cardId: statementReview.cardId,
@@ -236,7 +273,7 @@ export function BankWorkspace({ extractStatement = extractBnzStatement }: BankWo
     }));
     setAllTransactions((current) => [...current, ...imported]);
     setStatements((current) => [{
-      id: `statement-${importedAt}`,
+      id: statementId,
       cardId: statementReview.cardId,
       fileName: statementReview.fileName,
       fingerprint: statementReview.fingerprint,
@@ -249,6 +286,7 @@ export function BankWorkspace({ extractStatement = extractBnzStatement }: BankWo
     setSelectedCard(statementReview.cardId);
     setImportNotice(`${imported.length} ${imported.length === 1 ? "expense" : "expenses"} imported from ${statementReview.fileName}.`);
     setStatementReview(null);
+    setIsImporting(false);
     scrollToImportedActivity(importedActivityRef.current);
   };
 
@@ -276,6 +314,8 @@ export function BankWorkspace({ extractStatement = extractBnzStatement }: BankWo
           <label><span>Card</span><select aria-label="Filter by card" value={selectedCard} onChange={(event) => setSelectedCard(event.target.value)}><option value="all">All household cards</option>{cards.map((card) => <option key={card.id} value={card.id}>{card.nickname} · {card.lastFour}</option>)}</select></label>
         </div>
       </header>
+
+      {dataError && <div className="statement-error bank-data-error" role="alert"><WarningCircleIcon />{dataError}</div>}
 
       <section className="bank-metrics" aria-label="Bank summary">
         <article className="metric-card metric-primary"><span>Period total</span><strong>{money(total)}</strong><small>{transactions.length} transactions</small></article>
@@ -316,7 +356,7 @@ export function BankWorkspace({ extractStatement = extractBnzStatement }: BankWo
 
       <div className="bank-management-grid">
         <section className="management-card" aria-label="Household cards" role="region">
-          <div className="section-heading"><div><span>Card maintenance</span><h3>Your cards</h3></div><button type="button" onClick={() => { setCardDraft({ nickname: "", holder: "", lastFour: "" }); setCardFormContext("maintenance"); }}><PlusIcon weight="bold" />Add card</button></div>
+          <div className="section-heading"><div><span>Card maintenance</span><h3>Your cards</h3></div><button type="button" onClick={() => { setCardError(""); setCardDraft({ nickname: "", holder: "", lastFour: "" }); setCardFormContext("maintenance"); }}><PlusIcon weight="bold" />Add card</button></div>
           {cards.length > 0 && <div className="household-cards">
             {cards.map((card, index) => <article className={`household-card card-tone-${index % 2}`} key={card.id}><div><CreditCardIcon size={28} weight="duotone" /><span>{card.issuer}</span></div><strong>{card.nickname}</strong><small>{card.holder} · •••• {card.lastFour}</small></article>)}
           </div>}
@@ -361,7 +401,7 @@ export function BankWorkspace({ extractStatement = extractBnzStatement }: BankWo
           </div>
           <div className="statement-card-association">
             <label><span>Associated card</span><select aria-label="Card for statement" value={statementReview.cardId} onChange={(event) => setStatementReview((current) => current ? { ...current, cardId: event.target.value } : current)}><option value="">Choose a card</option>{cards.map((card) => <option key={card.id} value={card.id}>{card.nickname} · •••• {card.lastFour}</option>)}</select></label>
-            <button type="button" onClick={() => { setCardDraft({ nickname: "", holder: "", lastFour: statementReview.cardLastFour ?? "" }); setCardFormContext("statement"); }}><PlusIcon weight="bold" />Add new card</button>
+            <button type="button" onClick={() => { setCardError(""); setCardDraft({ nickname: "", holder: "", lastFour: statementReview.cardLastFour ?? "" }); setCardFormContext("statement"); }}><PlusIcon weight="bold" />Add new card</button>
           </div>
           <div className="statement-review-note"><WarningCircleIcon /><span><strong>Review required.</strong> Transfers and deposits are excluded from spending by default. You can edit every field and choose what belongs in the dashboard.</span></div>
           <div className="statement-review-list">
@@ -380,7 +420,7 @@ export function BankWorkspace({ extractStatement = extractBnzStatement }: BankWo
           </div>
           <div className="statement-review-actions">
             <div><strong>{includedReviewTransactions.length} expenses · {money(includedReviewTransactions.reduce((sum, transaction) => sum + transaction.amount, 0))}</strong>{reviewIssue && <span role="alert">{reviewIssue}</span>}</div>
-            <button className="primary-button" type="button" disabled={Boolean(reviewIssue)} onClick={confirmStatement}><CheckCircleIcon weight="bold" />Confirm {includedReviewTransactions.length} {includedReviewTransactions.length === 1 ? "expense" : "expenses"}</button>
+            <button className="primary-button" type="button" disabled={Boolean(reviewIssue) || isImporting} onClick={() => void confirmStatement()}><CheckCircleIcon weight="bold" />{isImporting ? "Saving statement…" : `Confirm ${includedReviewTransactions.length} ${includedReviewTransactions.length === 1 ? "expense" : "expenses"}`}</button>
           </div>
         </section>
       )}
@@ -406,7 +446,8 @@ export function BankWorkspace({ extractStatement = extractBnzStatement }: BankWo
               <label><span>Card nickname</span><input autoFocus aria-label="Card nickname" value={cardDraft.nickname} onChange={(event) => setCardDraft((current) => ({ ...current, nickname: event.target.value }))} placeholder="Joint Visa" required /></label>
               <label><span>Card holder</span><input aria-label="Card holder" value={cardDraft.holder} onChange={(event) => setCardDraft((current) => ({ ...current, holder: event.target.value }))} placeholder="Daniel & Andrea" required /></label>
               <label><span>Last four digits</span><input aria-label="Last four digits" value={cardDraft.lastFour} readOnly={cardFormContext === "statement" && Boolean(statementReview?.cardLastFour)} onChange={(event) => setCardDraft((current) => ({ ...current, lastFour: event.target.value.replace(/\D/g, "").slice(0, 4) }))} inputMode="numeric" pattern="\d{4}" placeholder="1234" required /></label>
-              <button className="primary-button" type="submit">{cardFormContext === "statement" ? "Save and associate card" : "Save card"}</button>
+              {cardError && <span className="card-form-error" role="alert">{cardError}</span>}
+              <button className="primary-button" type="submit" disabled={isSavingCard}>{isSavingCard ? "Saving card…" : cardFormContext === "statement" ? "Save and associate card" : "Save card"}</button>
             </form>
           </div>
         </div>

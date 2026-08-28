@@ -18,6 +18,9 @@ jobs:
         uses: actions/checkout@v7
       - name: Install, build, and upload site
         uses: withastro/action@v6
+        env:
+          PUBLIC_SUPABASE_URL: ${{ vars.PUBLIC_SUPABASE_URL }}
+          PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ vars.PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
 
   deploy:
     needs: build

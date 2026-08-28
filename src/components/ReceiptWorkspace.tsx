@@ -21,9 +21,15 @@ import { BankWorkspace } from "./BankWorkspace";
 import { appPath, viewFromPath, type AppView } from "../lib/app-routes";
 import { parseReceiptText, type ParsedReceipt, type ReceiptItem } from "../lib/receipt-parser";
 import { recognizeReceipt, type OcrProgress, type RecognizeReceipt } from "../lib/receipt-ocr";
+import type { FinanceStore } from "../lib/finance-store";
 
 type ReceiptWorkspaceProps = {
   recognize?: RecognizeReceipt;
+  memberName?: string;
+  memberEmail?: string;
+  onSignOut?: () => void;
+  receiptStore?: Pick<FinanceStore, "saveReceipt">;
+  bankStore?: FinanceStore;
 };
 
 type EditableReceiptItem = ReceiptItem & {
@@ -54,7 +60,14 @@ function displayDate(purchasedAt: string) {
   return `${Number(day)} ${months[Number(month) - 1]} ${year}`;
 }
 
-export function ReceiptWorkspace({ recognize = recognizeReceipt }: ReceiptWorkspaceProps) {
+export function ReceiptWorkspace({
+  recognize = recognizeReceipt,
+  memberName = "Daniel & Andrea",
+  memberEmail = "Household workspace",
+  onSignOut,
+  receiptStore,
+  bankStore,
+}: ReceiptWorkspaceProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [receipt, setReceipt] = useState<ParsedReceipt | null>(null);
   const [items, setItems] = useState<EditableReceiptItem[]>([]);
@@ -65,6 +78,8 @@ export function ReceiptWorkspace({ recognize = recognizeReceipt }: ReceiptWorksp
   const [showOriginal, setShowOriginal] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
   const [activeView, setActiveView] = useState<AppView>("receipts");
   const activeViewRef = useRef(activeView);
 
@@ -156,6 +171,8 @@ export function ReceiptWorkspace({ recognize = recognizeReceipt }: ReceiptWorksp
     setPreviewUrl("");
     setExpanded(false);
     setSaved(false);
+    setIsSaving(false);
+    setSaveError("");
     if (inputRef.current) inputRef.current.value = "";
   };
 
@@ -222,6 +239,32 @@ export function ReceiptWorkspace({ recognize = recognizeReceipt }: ReceiptWorksp
     setItems((current) => current.filter((item) => item.rowId !== rowId));
   };
 
+  const confirmReceipt = async () => {
+    if (!receipt || !canConfirm || saved || isSaving) return;
+    if (!receiptStore) {
+      setSaved(true);
+      return;
+    }
+
+    setIsSaving(true);
+    setSaveError("");
+    try {
+      await receiptStore.saveReceipt({
+        merchant: receipt.merchant.trim(),
+        receiptNumber: receipt.receiptNumber.trim(),
+        purchasedAt: receipt.purchasedAt,
+        total: receipt.receiptTotal,
+        confidence,
+        items: items.map(({ rowId: _rowId, ...item }) => item),
+      });
+      setSaved(true);
+    } catch {
+      setSaveError("The receipt could not be saved. Check your connection and try again.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   return (
     <div className="app-shell">
       <aside className="sidebar">
@@ -249,12 +292,13 @@ export function ReceiptWorkspace({ recognize = recognizeReceipt }: ReceiptWorksp
 
         <div className="household-profile">
           <span>D &amp; A</span>
-          <div><strong>Daniel &amp; Andrea</strong><small>Household workspace</small></div>
+          <div><strong>{memberName}</strong><small>{memberEmail}</small></div>
+          {onSignOut && <button type="button" onClick={onSignOut}>Sign out</button>}
         </div>
       </aside>
 
       {activeView === "bank" ? (
-        <main className="workspace bank-workspace" id="bank"><BankWorkspace /></main>
+        <main className="workspace bank-workspace" id="bank"><BankWorkspace store={bankStore} /></main>
       ) : (
       <main className="workspace" id="add">
         {!receipt ? (
@@ -402,11 +446,11 @@ export function ReceiptWorkspace({ recognize = recognizeReceipt }: ReceiptWorksp
               <button
                 className="primary-button"
                 type="button"
-                disabled={!canConfirm || saved}
+                disabled={!canConfirm || saved || isSaving}
                 aria-describedby={!canConfirm ? "confirmation-blockers" : undefined}
-                onClick={() => setSaved(true)}
+                onClick={() => void confirmReceipt()}
               >
-                <CheckCircleIcon size={21} weight="bold" />{saved ? "Confirmed" : `Confirm ${items.length} items`}
+                <CheckCircleIcon size={21} weight="bold" />{isSaving ? "Saving receipt…" : saved ? "Confirmed" : `Confirm ${items.length} items`}
               </button>
               <button className="secondary-button" type="button" onClick={reset}><CameraRotateIcon size={21} />Retake photo</button>
               <button className="text-button" type="button" onClick={() => setShowOriginal(true)} disabled={!previewUrl}>
@@ -414,10 +458,12 @@ export function ReceiptWorkspace({ recognize = recognizeReceipt }: ReceiptWorksp
               </button>
             </div>
 
+            {saveError && <div className="error-banner compact-error" role="alert">{saveError}</div>}
+
             {saved && (
               <div className="success-banner" role="status">
                 <CheckCircleIcon size={23} weight="fill" />
-                <div><strong>Receipt ready for Supabase</strong><span>The spike stops before persistence; the normalized payload is valid.</span></div>
+                <div><strong>Receipt saved to your household</strong><span>Its reviewed items are now available to Daniel and Andrea.</span></div>
               </div>
             )}
           </section>

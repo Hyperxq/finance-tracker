@@ -18,14 +18,13 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
 import { flushSync } from "react-dom";
 import { BankWorkspace } from "./BankWorkspace";
+import { appPath, viewFromPath, type AppView } from "../lib/app-routes";
 import { parseReceiptText, type ParsedReceipt, type ReceiptItem } from "../lib/receipt-parser";
 import { recognizeReceipt, type OcrProgress, type RecognizeReceipt } from "../lib/receipt-ocr";
 
 type ReceiptWorkspaceProps = {
   recognize?: RecognizeReceipt;
 };
-
-type AppView = "receipts" | "bank";
 
 type EditableReceiptItem = ReceiptItem & {
   rowId: number;
@@ -36,7 +35,9 @@ let nextRowId = 0;
 const editableItem = (item: ReceiptItem): EditableReceiptItem => ({ ...item, rowId: nextRowId += 1 });
 
 const money = (value: number) => `NZ$${value.toFixed(2)}`;
-const viewFromPath = (pathname: string): AppView => pathname === "/bank" ? "bank" : "receipts";
+const dashboardPath = appPath("/dashboard");
+const receiptsPath = appPath("/receipts");
+const bankPath = appPath("/bank");
 
 function displayMerchant(merchant: string) {
   const normalized = merchant.replace(/^PAK\s+N\s+SAVE/i, "PAK’nSAVE");
@@ -232,9 +233,9 @@ export function ReceiptWorkspace({ recognize = recognizeReceipt }: ReceiptWorksp
         </div>
 
         <nav aria-label="Primary navigation" className="primary-nav">
-          <a href="/dashboard" onClick={(event) => navigate(event, "/dashboard", "receipts")}><HouseIcon size={21} />Dashboard</a>
-          <a href="/receipts" aria-current={activeView === "receipts" ? "page" : undefined} onClick={(event) => navigate(event, "/receipts", "receipts")}><UploadSimpleIcon size={22} />Receipts</a>
-          <a href="/bank" aria-current={activeView === "bank" ? "page" : undefined} onClick={(event) => navigate(event, "/bank", "bank")}><ChartBarIcon size={22} />Bank spending</a>
+          <a href={dashboardPath} onClick={(event) => navigate(event, dashboardPath, "receipts")}><HouseIcon size={21} />Dashboard</a>
+          <a href={receiptsPath} aria-current={activeView === "receipts" ? "page" : undefined} onClick={(event) => navigate(event, receiptsPath, "receipts")}><UploadSimpleIcon size={22} />Receipts</a>
+          <a href={bankPath} aria-current={activeView === "bank" ? "page" : undefined} onClick={(event) => navigate(event, bankPath, "bank")}><ChartBarIcon size={22} />Bank spending</a>
         </nav>
 
         <div className="sidebar-utility">

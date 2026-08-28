@@ -43,7 +43,7 @@ export function App({ auth, workspace }: AppProps) {
     [workspace],
   );
   const [access, setAccess] = useState<HouseholdAccess | null>(null);
-  const [oauthError, setOauthError] = useState(consumeOAuthError);
+  const [oauthError, setOauthError] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const visibleError = oauthError || error;
@@ -56,6 +56,10 @@ export function App({ auth, workspace }: AppProps) {
       setError("Night Ledger could not verify your household access. Try again.");
     }
   }, [householdAuth]);
+
+  useEffect(() => {
+    setOauthError(consumeOAuthError());
+  }, []);
 
   useEffect(() => {
     void refreshAccess();

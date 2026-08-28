@@ -49,7 +49,10 @@ describe("App authentication", () => {
     expect(screen.queryByText("Household workspace")).not.toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: /use another account/i }));
-    await waitFor(() => expect(auth.signOut).toHaveBeenCalledOnce());
+    await waitFor(() => {
+      expect(auth.signOut).toHaveBeenCalledOnce();
+      expect(auth.signIn).toHaveBeenCalledOnce();
+    });
   });
 
   it("explains an OAuth rejection and offers another Google account", async () => {

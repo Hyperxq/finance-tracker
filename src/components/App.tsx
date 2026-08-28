@@ -90,6 +90,19 @@ export function App({ auth, workspace }: AppProps) {
     }
   };
 
+  const switchAccount = async () => {
+    setBusy(true);
+    setError("");
+    try {
+      await householdAuth.signOut();
+      setAccess({ status: "signed-out" });
+      await householdAuth.signIn();
+    } catch {
+      setError("Google account switching could not start. Try again.");
+      setBusy(false);
+    }
+  };
+
   if (access?.status === "authorized") {
     return workspace ?? (
       <ReceiptWorkspace
@@ -117,7 +130,7 @@ export function App({ auth, workspace }: AppProps) {
           <>
             <h1>Private household</h1>
             <p><strong>{access.email}</strong> is signed in, but it is not a member of this household.</p>
-            <button className="secondary-button" type="button" disabled={busy} onClick={() => void signOut()}>
+            <button className="secondary-button" type="button" disabled={busy} onClick={() => void switchAccount()}>
               Use another account
             </button>
           </>

@@ -6,6 +6,10 @@ const migration = readFileSync(
   fileURLToPath(new NodeURL("../supabase/migrations/20260828000000_household_finance.sql", import.meta.url)),
   "utf8",
 );
+const membershipMigration = readFileSync(
+  fileURLToPath(new NodeURL("../supabase/migrations/20260828010000_authorize_household_members.sql", import.meta.url)),
+  "utf8",
+);
 
 describe("Supabase household schema", () => {
   it("applies the household schema as one transaction", () => {
@@ -49,5 +53,33 @@ describe("Supabase household schema", () => {
   it("saves receipt and statement aggregates atomically", () => {
     expect(migration).toContain("function public.save_receipt");
     expect(migration).toContain("function public.import_bank_statement");
+  });
+
+  it("lets Google authentication finish before deciding household access", () => {
+    const hookDefinition = membershipMigration.match(
+      /create or replace function public\.hook_restrict_household_signup[\s\S]*?\n\$\$;/,
+    )?.[0];
+
+    expect(hookDefinition).toContain("provider = 'google'");
+    expect(hookDefinition).toContain("return '{}'::jsonb");
+    expect(hookDefinition).not.toContain("allowed_member_emails");
+  });
+
+  it("only creates membership for a normalized allowlisted Google email", () => {
+    const triggerDefinition = membershipMigration.match(
+      /create or replace function private\.handle_new_auth_user[\s\S]*?\n\$\$;/,
+    )?.[0];
+
+    expect(membershipMigration).toContain("function private.normalized_google_email_hash");
+    expect(membershipMigration).toContain("'@googlemail\\.com$'");
+    expect(triggerDefinition).toContain("private.normalized_google_email_hash(new.email)");
+    expect(triggerDefinition).toContain("private.allowed_member_emails");
+    expect(triggerDefinition).toContain("provider', '') <> 'google'");
+  });
+
+  it("backfills approved Google users without granting membership to others", () => {
+    expect(membershipMigration).toMatch(
+      /from auth\.users as auth_user[\s\S]*?join private\.allowed_member_emails as allowed[\s\S]*?private\.normalized_google_email_hash\(auth_user\.email\)/,
+    );
   });
 });

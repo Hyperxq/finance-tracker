@@ -1,3 +1,5 @@
+import { createWorker } from "tesseract.js";
+
 export type OcrProgress = {
   label: string;
   progress: number;
@@ -52,7 +54,6 @@ async function enhanceReceipt(file: File) {
 export const recognizeReceipt: RecognizeReceipt = async (file, onProgress) => {
   onProgress?.({ label: "Reading original", progress: 8 });
   let enhancedPass = false;
-  const { createWorker } = await import("tesseract.js");
   const worker = await createWorker("eng", undefined, {
     logger: (message) => {
       if (message.status !== "recognizing text") return;

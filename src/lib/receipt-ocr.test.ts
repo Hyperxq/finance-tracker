@@ -1,5 +1,19 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+const ocrRuntime = vi.hoisted(() => ({ loaded: false }));
+
+vi.mock("tesseract.js", () => {
+  ocrRuntime.loaded = true;
+  return { createWorker: vi.fn() };
+});
+
 import { calculateReceiptScale, shouldEnhanceReceipt } from "./receipt-ocr";
+
+describe("OCR runtime", () => {
+  it("loads with the receipt module instead of waiting for a photo upload", () => {
+    expect(ocrRuntime.loaded).toBe(true);
+  });
+});
 
 describe("calculateReceiptScale", () => {
   it("upscales a small receipt without exceeding four times its source size", () => {

@@ -551,7 +551,17 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   padding: 0;
   list-style: none;
 }
-.small-spend-pulse li { display: grid; width: 100%; height: 100%; grid-template-rows: 1fr auto; align-items: end; gap: 7px; text-align: center; }
+.small-spend-pulse li {
+  display: grid;
+  min-width: 0;
+  flex: 1 1 0;
+  width: auto;
+  height: 100%;
+  grid-template-rows: 1fr auto;
+  align-items: end;
+  gap: 7px;
+  text-align: center;
+}
 .small-spend-pulse li > span { display: block; min-height: 9px; border-radius: 5px 5px 2px 2px; background: var(--accent-deep); transform-origin: bottom; animation: bar-grow-y var(--motion-slow) var(--ease-out) both; transition: height var(--motion-standard) var(--ease-soft); }
 .small-spend-pulse small { color: var(--ink); font: 10px "IBM Plex Mono", monospace; }
 

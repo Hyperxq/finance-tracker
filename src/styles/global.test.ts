@@ -41,4 +41,8 @@ describe("Bank dashboard responsive containment", () => {
     expect(stylesheet).toMatch(/\.chart-card,[^{]+\{[^}]*min-width:\s*0;[^}]*max-width:\s*100%;/s);
     expect(stylesheet).toMatch(/\.merchant-chart li strong\s*\{[^}]*min-width:\s*0;[^}]*overflow-wrap:\s*anywhere;/s);
   });
+
+  it("shares the small-spend chart width between every day", () => {
+    expect(stylesheet).toMatch(/\.small-spend-pulse li\s*\{[^}]*min-width:\s*0;[^}]*flex:\s*1 1 0;[^}]*width:\s*auto;/s);
+  });
 });

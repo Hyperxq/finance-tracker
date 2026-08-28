@@ -1,0 +1,9 @@
+---
+import AppPage from "../layouts/AppPage.astro";
+
+export function getStaticPaths() {
+  return ["dashboard", "receipts", "bank"].map((view) => ({ params: { view } }));
+}
+---
+
+<AppPage />

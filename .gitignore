@@ -1,0 +1,10 @@
+node_modules/
+.astro/
+dist/
+.playwright-mcp/
+.codegraph/
+tmp/
+*.traineddata
+implementation-review-*.png
+design-qa.md
+.DS_Store

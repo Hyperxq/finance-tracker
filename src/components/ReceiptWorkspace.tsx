@@ -131,7 +131,7 @@ export function ReceiptWorkspace({
   const missingReceiptDetails = receipt ? [
     receipt.merchant.trim().length === 0 ? "merchant" : "",
     receipt.purchasedAt.length === 0 ? "purchase date" : "",
-    receipt.receiptTotal < 0 ? "printed total" : "",
+    receipt.receiptTotal <= 0 ? "printed total" : "",
   ].filter(Boolean) : [];
   const incompleteItemCount = items.filter(
     (item) => item.name.trim().length === 0 || item.quantity <= 0 || item.unitPrice < 0 || item.amount < 0,
@@ -187,8 +187,10 @@ export function ReceiptWorkspace({
     try {
       const result = await recognize(file, setProgress);
       const parsed = parseReceiptText(result.text);
-      if (parsed.items.length === 0 || parsed.receiptTotal === 0) {
-        throw new Error("No itemized receipt was found. Retake the photo with the receipt flat and fully visible.");
+      if (parsed.items.length === 0) {
+        throw new Error(result.text.trim()
+          ? "We found receipt text, but could not identify any item lines. Retake the photo closer or choose a clearer image."
+          : "No readable receipt text was found. Retake the photo closer with even lighting.");
       }
       setReceipt(parsed);
       setItems(parsed.items.map(editableItem));

@@ -255,4 +255,34 @@ describe("ReceiptWorkspace", () => {
     expect(screen.queryByText(/NaN/)).not.toBeInTheDocument();
     expect(screen.getByText("Missing details")).toBeInTheDocument();
   });
+
+  it("opens extracted items for correction when the printed total is missing", async () => {
+    const user = userEvent.setup();
+    const recognize = vi.fn().mockResolvedValue({ text: "PAK N SAVE\n30/07/2023\nBREAD $3.89", confidence: 79 });
+    render(<ReceiptWorkspace recognize={recognize} />);
+
+    await user.upload(
+      screen.getByLabelText(/choose receipt photo/i),
+      new File(["receipt"], "receipt.png", { type: "image/png" }),
+    );
+
+    expect(await screen.findByRole("heading", { name: /review receipt/i })).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("Complete the printed total");
+    expect(screen.getByLabelText("Printed total")).toHaveValue(0);
+  });
+
+  it("explains when receipt text was found but no item lines were identified", async () => {
+    const user = userEvent.setup();
+    const recognize = vi.fn().mockResolvedValue({ text: "PAK N SAVE\nTOTAL $3.89", confidence: 79 });
+    render(<ReceiptWorkspace recognize={recognize} />);
+
+    await user.upload(
+      screen.getByLabelText(/choose receipt photo/i),
+      new File(["receipt"], "receipt.png", { type: "image/png" }),
+    );
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "We found receipt text, but could not identify any item lines",
+    );
+  });
 });

@@ -1,4 +1,5 @@
 import { createWorker } from "tesseract.js";
+import { parseReceiptText } from "./receipt-parser";
 
 export type OcrProgress = {
   label: string;
@@ -19,8 +20,20 @@ export function calculateReceiptScale(width: number, height: number) {
   return Math.min(4, 1800 / width, 2400 / height);
 }
 
-export function shouldEnhanceReceipt(confidence: number) {
-  return confidence < 65;
+export function receiptOcrScore(text: string, confidence: number) {
+  const receipt = parseReceiptText(text);
+  return (receipt.items.length > 0 ? 1000 : 0)
+    + (receipt.receiptTotal > 0 ? 500 : 0)
+    + (receipt.matched ? 250 : 0)
+    + receipt.items.length * 10
+    + confidence / 100;
+}
+
+export function shouldEnhanceReceipt(confidence: number, text = "") {
+  if (confidence < 65) return true;
+  if (!text) return false;
+  const receipt = parseReceiptText(text);
+  return receipt.items.length === 0 || receipt.receiptTotal === 0 || !receipt.matched;
 }
 
 async function enhanceReceipt(file: File) {
@@ -68,11 +81,12 @@ export const recognizeReceipt: RecognizeReceipt = async (file, onProgress) => {
     const original = await worker.recognize(file);
     let result = original;
 
-    if (shouldEnhanceReceipt(original.data.confidence)) {
+    if (shouldEnhanceReceipt(original.data.confidence, original.data.text)) {
       enhancedPass = true;
       const preparedImage = await enhanceReceipt(file);
       const enhanced = await worker.recognize(preparedImage);
-      if (enhanced.data.confidence > original.data.confidence) result = enhanced;
+      if (receiptOcrScore(enhanced.data.text, enhanced.data.confidence)
+        > receiptOcrScore(original.data.text, original.data.confidence)) result = enhanced;
     }
 
     onProgress?.({ label: "Structuring items", progress: 100 });

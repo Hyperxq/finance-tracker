@@ -113,6 +113,24 @@ ACNT # 2100077823
 CHEQUE 50.45
 `;
 
+const WEIGHTED_AND_MISALIGNED_TOTAL_OCR = `
+PAKNSAVE
+BALDUCCI 18 PENNE RIGATI 500G $1.49
+PUMPKIN BUTTERNUT EA 19 $3.99 EA= $3.9
+CARROTS
+0.288 Kg @ $2.79/Kg $0.80
+ONIONS BROWN
+0.298 Kg @ $1.99/Kg $0.59
+NZ BEEF MINCE 312.52
+19 BALANCE OUE
+og N $100.00
+SUB TOTAL $63.57
+TOTAL 6ST $73.11
+TOTAL
+$26.90
+CHANGE
+`;
+
 describe("parseReceiptText", () => {
   it("extracts metadata and every item from the PAK'nSAVE sample", () => {
     const receipt = parseReceiptText(PAKNSAVE_SAMPLE);
@@ -224,5 +242,18 @@ PAK N SAVE RICCARTON
     expect(receipt.items[1]).toMatchObject({ name: "NOODLES", amount: 0.59 });
     expect(receipt.items.at(-1)).toMatchObject({ name: "CHEQUE FEE", amount: 0.2 });
     expect(receipt.receiptTotal).toBe(50.45);
+  });
+
+  it("keeps weighted products together and recovers a misaligned printed total", () => {
+    const receipt = parseReceiptText(WEIGHTED_AND_MISALIGNED_TOTAL_OCR);
+
+    expect(receipt.items).toEqual([
+      { name: "BALDUCCI 18 PENNE RIGATI 500G", quantity: 1, unitPrice: 1.49, amount: 1.49 },
+      { name: "PUMPKIN BUTTERNUT EA", quantity: 1, unitPrice: 3.99, amount: 3.99 },
+      { name: "CARROTS", quantity: 0.288, unitPrice: 2.79, amount: 0.8 },
+      { name: "ONIONS BROWN", quantity: 0.298, unitPrice: 1.99, amount: 0.59 },
+      { name: "NZ BEEF MINCE", quantity: 1, unitPrice: 12.52, amount: 12.52 },
+    ]);
+    expect(receipt.receiptTotal).toBe(73.11);
   });
 });

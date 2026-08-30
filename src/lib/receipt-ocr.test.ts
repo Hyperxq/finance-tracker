@@ -7,7 +7,7 @@ vi.mock("tesseract.js", () => {
   return { createWorker: vi.fn() };
 });
 
-import { calculateReceiptScale, shouldEnhanceReceipt } from "./receipt-ocr";
+import { calculateReceiptScale, receiptOcrScore, shouldEnhanceReceipt } from "./receipt-ocr";
 
 describe("OCR runtime", () => {
   it("loads with the receipt module instead of waiting for a photo upload", () => {
@@ -36,5 +36,29 @@ describe("shouldEnhanceReceipt", () => {
 
   it("keeps a clear original scan instead of degrading it", () => {
     expect(shouldEnhanceReceipt(75)).toBe(false);
+  });
+
+  it("retries high-confidence text when required receipt structure is missing", () => {
+    expect(shouldEnhanceReceipt(79, "PAKNSAVE\nBREAD $3.89")).toBe(true);
+  });
+
+  it("retries high-confidence text when extracted items do not reconcile", () => {
+    expect(shouldEnhanceReceipt(79, "PAKNSAVE\nBREAD $3.89\nTOTAL $4.89")).toBe(true);
+  });
+});
+
+describe("receiptOcrScore", () => {
+  it("prefers itemized text with a printed total over higher-confidence incomplete text", () => {
+    const incomplete = receiptOcrScore("PAKNSAVE\nBREAD $3.89", 90);
+    const complete = receiptOcrScore("PAKNSAVE\nBREAD $3.89\nTOTAL $3.89", 70);
+
+    expect(complete).toBeGreaterThan(incomplete);
+  });
+
+  it("prefers a reconciled scan over a higher-confidence mismatch", () => {
+    const mismatched = receiptOcrScore("PAKNSAVE\nBREAD $3.89\nTOTAL $4.89", 90);
+    const reconciled = receiptOcrScore("PAKNSAVE\nBREAD $3.89\nTOTAL $3.89", 70);
+
+    expect(reconciled).toBeGreaterThan(mismatched);
   });
 });

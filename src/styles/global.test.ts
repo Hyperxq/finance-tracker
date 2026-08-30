@@ -59,6 +59,24 @@ describe("Bank dashboard responsive containment", () => {
   });
 });
 
+describe("Receipt dashboard responsive containment", () => {
+  it("lets dashboard cards and filters shrink inside the workspace", () => {
+    expect(stylesheet).toMatch(/\.dashboard-view,[^{]+\{[^}]*min-width:\s*0;[^}]*max-width:\s*100%;/s);
+    expect(stylesheet).toMatch(/\.dashboard-grid\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1\.45fr\)\s+minmax\(0,\s*1fr\);/s);
+    expect(stylesheet).toMatch(/\.dashboard-card,[^{]+\{[^}]*min-width:\s*0;[^}]*max-width:\s*100%;/s);
+  });
+
+  it("contains dense charts without widening the page", () => {
+    expect(stylesheet).toMatch(/\.receipt-spend-bars\s*\{[^}]*min-width:\s*0;[^}]*width:\s*100%;[^}]*overflow-x:\s*auto;/s);
+    expect(stylesheet).toMatch(/\.price-chart-scroll\s*\{[^}]*max-width:\s*100%;[^}]*overflow-x:\s*auto;/s);
+  });
+
+  it("stacks dashboard content on narrow screens", () => {
+    expect(stylesheet).toMatch(/@media \(max-width: 900px\)[\s\S]*?\.dashboard-header,\s*\.dashboard-grid\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\);/);
+    expect(stylesheet).toMatch(/@media \(max-width: 620px\)[\s\S]*?\.dashboard-metrics\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\);/);
+  });
+});
+
 describe("Household account controls", () => {
   it("keeps sign out available in the mobile header", () => {
     expect(stylesheet).toMatch(/@media \(max-width: 900px\)[\s\S]*?\.household-profile\s*\{[^}]*display:\s*flex;[^}]*grid-column:\s*2;[^}]*grid-row:\s*1;/);

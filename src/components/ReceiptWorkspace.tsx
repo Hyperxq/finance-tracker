@@ -19,6 +19,7 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type MouseEvent as ReactMouseEvent } from "react";
 import { flushSync } from "react-dom";
 import { BankWorkspace } from "./BankWorkspace";
+import { DashboardWorkspace } from "./DashboardWorkspace";
 import { appPath, viewFromPath, type AppView } from "../lib/app-routes";
 import { parseReceiptText, type ParsedReceipt, type ReceiptItem } from "../lib/receipt-parser";
 import { recognizeReceipt, type OcrProgress, type RecognizeReceipt } from "../lib/receipt-ocr";
@@ -286,7 +287,7 @@ export function ReceiptWorkspace({
         </div>
 
         <nav aria-label="Primary navigation" className="primary-nav">
-          <a href={dashboardPath} onClick={(event) => navigate(event, dashboardPath, "receipts")}><HouseIcon size={21} />Dashboard</a>
+          <a href={dashboardPath} aria-current={activeView === "dashboard" ? "page" : undefined} onClick={(event) => navigate(event, dashboardPath, "dashboard")}><HouseIcon size={21} />Dashboard</a>
           <a href={receiptsPath} aria-current={activeView === "receipts" ? "page" : undefined} onClick={(event) => navigate(event, receiptsPath, "receipts")}><UploadSimpleIcon size={22} />Receipts</a>
           <a href={bankPath} aria-current={activeView === "bank" ? "page" : undefined} onClick={(event) => navigate(event, bankPath, "bank")}><ChartBarIcon size={22} />Bank spending</a>
         </nav>
@@ -307,7 +308,9 @@ export function ReceiptWorkspace({
         </div>
       </aside>
 
-      {activeView === "bank" ? (
+      {activeView === "dashboard" ? (
+        <main className="workspace dashboard-workspace" id="dashboard"><DashboardWorkspace store={bankStore} /></main>
+      ) : activeView === "bank" ? (
         <main className="workspace bank-workspace" id="bank"><BankWorkspace memberName={memberName} store={bankStore} /></main>
       ) : (
       <main className="workspace" id="add">

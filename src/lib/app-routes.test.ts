@@ -10,6 +10,8 @@ describe("application routes", () => {
   it("recognizes the bank view with or without a deployment base path", () => {
     expect(viewFromPath("/bank")).toBe("bank");
     expect(viewFromPath("/finance-tracker/bank")).toBe("bank");
+    expect(viewFromPath("/dashboard")).toBe("dashboard");
+    expect(viewFromPath("/finance-tracker/dashboard")).toBe("dashboard");
     expect(viewFromPath("/finance-tracker/receipts")).toBe("receipts");
   });
 });

@@ -62,6 +62,17 @@ describe("ReceiptWorkspace", () => {
     expect(screen.getByRole("link", { name: /bank spending/i })).toHaveAttribute("aria-current", "page");
   });
 
+  it("opens the receipt analytics dashboard from the primary navigation", async () => {
+    const user = userEvent.setup();
+    render(<ReceiptWorkspace bankStore={{ loadReceiptData: vi.fn().mockResolvedValue({ receipts: [], items: [] }) } as never} />);
+
+    await user.click(screen.getByRole("link", { name: "Dashboard" }));
+
+    expect(window.location.pathname).toBe("/dashboard");
+    expect(await screen.findByRole("heading", { name: /your grocery rhythm/i })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Dashboard" })).toHaveAttribute("aria-current", "page");
+  });
+
   it("transitions back and forward when the URL path changes", async () => {
     const startViewTransition = vi.fn((update: () => void) => {
       update();

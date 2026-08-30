@@ -1,4 +1,4 @@
-export type AppView = "receipts" | "bank";
+export type AppView = "dashboard" | "receipts" | "bank";
 
 export function appPath(path: `/${string}`, base = import.meta.env.BASE_URL) {
   const trimmedBase = base.replace(/^\/+|\/+$/g, "");
@@ -6,5 +6,8 @@ export function appPath(path: `/${string}`, base = import.meta.env.BASE_URL) {
 }
 
 export function viewFromPath(pathname: string): AppView {
-  return pathname.replace(/\/+$/, "").endsWith("/bank") ? "bank" : "receipts";
+  const path = pathname.replace(/\/+$/, "");
+  if (path.endsWith("/bank")) return "bank";
+  if (path.endsWith("/dashboard")) return "dashboard";
+  return "receipts";
 }

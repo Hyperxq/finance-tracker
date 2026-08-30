@@ -120,7 +120,12 @@ describe("ReceiptWorkspace", () => {
     expect(screen.getByText("Daniel & Andrea")).toBeInTheDocument();
     expect(screen.getByText("Household workspace")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /turn a receipt into clean data/i })).toBeInTheDocument();
-    expect(screen.getByLabelText(/choose receipt photo/i)).toBeInTheDocument();
+    const cameraInput = screen.getByLabelText(/take receipt photo/i);
+    const libraryInput = screen.getByLabelText(/choose receipt photo/i);
+    expect(cameraInput).toHaveAttribute("accept", "image/*");
+    expect(cameraInput).toHaveAttribute("capture", "environment");
+    expect(libraryInput).toHaveAttribute("accept", "image/*");
+    expect(libraryInput).not.toHaveAttribute("capture");
     expect(screen.getByText(/stays on this device/i)).toBeInTheDocument();
   });
 

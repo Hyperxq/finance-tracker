@@ -308,6 +308,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .upload-panel p { margin: 0 0 28px; color: var(--muted); }
 .upload-panel small { margin-top: 17px; color: var(--quiet); }
 .upload-panel input[type="file"] { position: absolute; width: 1px; height: 1px; overflow: hidden; opacity: 0; }
+.receipt-photo-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; width: min(100%, 520px); }
+.receipt-photo-actions label { min-width: 0; padding-inline: 18px; }
 
 .primary-button, .secondary-button, .text-button {
   display: inline-flex;
@@ -814,6 +816,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .page-header p, .review-header p { margin-bottom: 22px; }
   .page-header h1, .review-header h1 { font-size: 52px; }
   .upload-panel { min-height: 350px; margin-top: 34px; padding: 42px 20px; }
+  .receipt-photo-actions { grid-template-columns: minmax(0, 1fr); }
   .receipt-summary { padding: 18px; }
   .receipt-fields { grid-template-columns: 1fr 1fr; }
   .merchant-field, .receipt-number-field, .total-field { grid-column: 1 / -1; }

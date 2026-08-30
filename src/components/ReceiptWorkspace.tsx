@@ -1,6 +1,7 @@
 import {
   ArrowRightIcon,
   BrainIcon,
+  CameraIcon,
   CameraRotateIcon,
   ChartBarIcon,
   CheckCircleIcon,
@@ -15,7 +16,7 @@ import {
   WarningCircleIcon,
   XIcon,
 } from "@phosphor-icons/react";
-import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type MouseEvent as ReactMouseEvent } from "react";
 import { flushSync } from "react-dom";
 import { BankWorkspace } from "./BankWorkspace";
 import { appPath, viewFromPath, type AppView } from "../lib/app-routes";
@@ -68,7 +69,8 @@ export function ReceiptWorkspace({
   receiptStore,
   bankStore,
 }: ReceiptWorkspaceProps) {
-  const inputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const libraryInputRef = useRef<HTMLInputElement>(null);
   const [receipt, setReceipt] = useState<ParsedReceipt | null>(null);
   const [items, setItems] = useState<EditableReceiptItem[]>([]);
   const [confidence, setConfidence] = useState(0);
@@ -173,7 +175,8 @@ export function ReceiptWorkspace({
     setSaved(false);
     setIsSaving(false);
     setSaveError("");
-    if (inputRef.current) inputRef.current.value = "";
+    if (cameraInputRef.current) cameraInputRef.current.value = "";
+    if (libraryInputRef.current) libraryInputRef.current.value = "";
   };
 
   const processFile = async (file: File) => {
@@ -195,6 +198,11 @@ export function ReceiptWorkspace({
       setProgress(null);
       setError(caught instanceof Error ? caught.message : "The receipt could not be read.");
     }
+  };
+
+  const processSelectedFile = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) void processFile(file);
   };
 
   const updateReceipt = (field: "merchant" | "receiptNumber" | "receiptTotal", value: string) => {
@@ -332,19 +340,28 @@ export function ReceiptWorkspace({
                   <span className="eyebrow">Receipt photo</span>
                   <h3>Drop a clear image here</h3>
                   <p>Include the store, every item, and the printed total.</p>
-                  <label className="primary-button" htmlFor="receipt-photo">
-                    <ImageSquareIcon size={21} weight="bold" />Choose receipt photo
-                  </label>
+                  <div className="receipt-photo-actions">
+                    <label className="primary-button" htmlFor="receipt-camera">
+                      <CameraIcon size={21} weight="bold" />Take receipt photo
+                    </label>
+                    <label className="secondary-button" htmlFor="receipt-photo">
+                      <ImageSquareIcon size={21} weight="bold" />Choose receipt photo
+                    </label>
+                  </div>
                   <input
-                    ref={inputRef}
-                    id="receipt-photo"
+                    ref={cameraInputRef}
+                    id="receipt-camera"
                     type="file"
                     accept="image/*"
                     capture="environment"
-                    onChange={(event) => {
-                      const file = event.target.files?.[0];
-                      if (file) void processFile(file);
-                    }}
+                    onChange={processSelectedFile}
+                  />
+                  <input
+                    ref={libraryInputRef}
+                    id="receipt-photo"
+                    type="file"
+                    accept="image/*"
+                    onChange={processSelectedFile}
                   />
                   <small>PNG, JPEG, or HEIC · up to 20 MB</small>
                 </>

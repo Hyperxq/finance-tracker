@@ -513,6 +513,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 }
 .bank-filters {
   display: grid;
+  min-width: 0;
   width: 320px;
   gap: 12px;
   padding: 18px;
@@ -521,6 +522,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   background: var(--surface);
 }
 .bank-filters label, .card-form label, .statement-card-association label { display: grid; gap: 6px; }
+.bank-filters > *, .date-range-fields > label { min-width: 0; }
 .bank-filters label > span, .card-form label > span, .statement-card-association label > span, .period-toggle > span {
   color: var(--quiet);
   font-size: 10px;
@@ -530,6 +532,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 }
 .bank-view select, .card-form input, .bank-filters input {
   width: 100%;
+  min-width: 0;
   height: 42px;
   padding: 0 12px;
   border: 1px solid #373c36;
@@ -539,11 +542,11 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 }
 .bank-view select:focus, .card-form input:focus, .bank-filters input:focus { border-color: var(--accent); outline: none; }
 .period-toggle { display: grid; gap: 6px; }
-.period-toggle > div { display: grid; grid-template-columns: 1fr 1fr; padding: 3px; border: 1px solid #373c36; border-radius: 10px; background: #0d100e; }
+.period-toggle > div { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 3px; border: 1px solid #373c36; border-radius: 10px; background: #0d100e; }
 .period-toggle button { min-height: 34px; border: 0; border-radius: 7px; background: transparent; color: var(--quiet); cursor: pointer; font-weight: 750; }
 .period-toggle button[aria-pressed="true"] { background: var(--accent-deep); color: var(--accent); }
 .period-toggle button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.date-range-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+.date-range-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
 .date-range-fields > span { grid-column: 1 / -1; color: var(--danger); font-size: 11px; }
 
 .bank-metrics {
@@ -656,7 +659,10 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   text-align: center;
 }
 .small-spend-pulse li > span { display: block; min-height: 9px; border-radius: 5px 5px 2px 2px; background: var(--accent-deep); transform-origin: bottom; animation: bar-grow-y var(--motion-slow) var(--ease-out) both; transition: height var(--motion-standard) var(--ease-soft); }
-.small-spend-pulse small { color: var(--ink); font: 10px "IBM Plex Mono", monospace; }
+.small-spend-pulse small { min-width: 0; overflow: hidden; color: var(--ink); font: 10px "IBM Plex Mono", monospace; text-overflow: clip; white-space: nowrap; }
+.small-spend-pulse:has(li:nth-child(10)) small { visibility: hidden; }
+.small-spend-pulse:has(li:nth-child(10)) li:nth-child(6n + 1) small { width: max-content; justify-self: center; overflow: visible; visibility: visible; }
+.small-spend-pulse:has(li:nth-child(10)) li:first-child small { justify-self: start; }
 
 .trend-card { margin-top: 16px; }
 .trend-card ol { display: flex; height: 190px; align-items: end; gap: clamp(18px, 5vw, 72px); margin: 24px 0 0; padding: 0 5%; list-style: none; }
@@ -750,11 +756,14 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .import-notice svg { flex: 0 0 auto; color: var(--accent); }
 .bank-view select {
   appearance: none;
+  overflow: hidden;
   padding-right: 44px;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16' fill='none'%3E%3Cpath d='m4 6 4 4 4-4' stroke='%23a78bfa' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 16px center;
   background-size: 16px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .bank-view select:focus-visible { outline: 3px solid rgba(167, 139, 250, 0.52); outline-offset: 2px; }
 .transaction-list { display: grid; margin-top: 18px; }
@@ -774,7 +783,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 @media (max-width: 900px) {
   .app-shell { grid-template-columns: 1fr; }
   .sidebar { position: static; display: grid; grid-template-columns: 1fr auto; height: auto; padding: 18px 20px; border-right: 0; border-bottom: 1px solid var(--line); }
-  .primary-nav { grid-column: 1 / -1; grid-template-columns: repeat(3, 1fr); margin-top: 18px; }
+  .primary-nav { grid-column: 1 / -1; grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: 18px; }
   .sidebar-utility { display: none; }
   .household-profile { display: flex; grid-column: 2; grid-row: 1; padding-top: 0; }
   .household-profile > span { width: 38px; height: 38px; }
@@ -790,8 +799,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .reconciliation { grid-template-columns: 1fr 1fr; }
   .reconciliation > div:nth-child(2) { border-right: 0; }
   .reconciliation > div:nth-child(-n+2) { border-bottom: 1px solid var(--line); }
-  .bank-header { grid-template-columns: 1fr; gap: 26px; }
-  .bank-filters { grid-template-columns: 1fr 1fr; width: 100%; }
+  .bank-header { grid-template-columns: minmax(0, 1fr); gap: 26px; }
+  .bank-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); width: 100%; }
   .bank-metrics { grid-template-columns: 1fr 1fr; }
   .metric-card:nth-child(2) { border-right: 0; }
   .metric-card:nth-child(-n+2) { border-bottom: 1px solid var(--line); }
@@ -826,7 +835,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .bank-workspace { padding-top: 24px; }
   .bank-header h1 { font-size: 52px; }
   .bank-header h2 { font-size: 15px; }
-  .bank-filters { grid-template-columns: 1fr; padding: 14px; }
+  .bank-filters { grid-template-columns: minmax(0, 1fr); padding: 14px; }
   .bank-metrics { grid-template-columns: 1fr; border-radius: var(--radius-md); }
   .metric-card { min-height: 112px; border-right: 0; border-bottom: 1px solid var(--line); }
   .metric-card:last-child { border-bottom: 0; }
@@ -860,6 +869,12 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .statement-review-actions .primary-button { width: 100%; min-width: 0; }
   .transaction-list article { grid-template-columns: 52px minmax(0, 1fr) auto; gap: 9px; }
   .transaction-list div span { overflow: hidden; max-width: 160px; text-overflow: ellipsis; white-space: nowrap; }
+}
+
+@media (max-width: 420px) {
+  .primary-nav { gap: 4px; }
+  .primary-nav a { min-width: 0; flex-direction: column; gap: 3px; padding: 5px; font-size: 11px; line-height: 1; text-align: center; }
+  .date-range-fields { grid-template-columns: minmax(0, 1fr); }
 }
 
 @media (prefers-reduced-motion: reduce) {

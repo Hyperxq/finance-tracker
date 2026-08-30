@@ -3,6 +3,34 @@ import { describe, expect, it, vi } from "vitest";
 import { createFinanceStore } from "./finance-store";
 
 describe("createFinanceStore", () => {
+  it("loads confirmed receipts and their items for household analytics", async () => {
+    const receipts = {
+      select: vi.fn().mockReturnValue({
+        order: vi.fn().mockResolvedValue({
+          data: [{ id: "receipt-1", merchant: "PAK'nSAVE", purchased_at: "2026-08-28T18:30:00Z", total: "12.50" }],
+          error: null,
+        }),
+      }),
+    };
+    const items = {
+      select: vi.fn().mockReturnValue({
+        order: vi.fn().mockResolvedValue({
+          data: [{ id: "item-1", receipt_id: "receipt-1", name: "Milk", quantity: "1.000", unit_price: "4.50", amount: "4.50" }],
+          error: null,
+        }),
+      }),
+    };
+    const from = vi.fn((table: string) => table === "receipts" ? receipts : items);
+    const store = createFinanceStore({ from } as unknown as SupabaseClient);
+
+    await expect(store.loadReceiptData()).resolves.toEqual({
+      receipts: [{ id: "receipt-1", merchant: "PAK'nSAVE", purchasedAt: "2026-08-28T18:30:00Z", total: 12.5 }],
+      items: [{ id: "item-1", receiptId: "receipt-1", name: "Milk", quantity: 1, unitPrice: 4.5, amount: 4.5 }],
+    });
+    expect(from).toHaveBeenCalledWith("receipts");
+    expect(from).toHaveBeenCalledWith("receipt_items");
+  });
+
   it("saves normalized receipts through the atomic database function", async () => {
     const rpc = vi.fn().mockResolvedValue({ data: "receipt-1", error: null });
     const store = createFinanceStore({ rpc } as unknown as SupabaseClient);

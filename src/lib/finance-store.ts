@@ -41,6 +41,27 @@ export type ReceiptPayload = {
   }>;
 };
 
+export type SavedReceipt = {
+  id: string;
+  merchant: string;
+  purchasedAt: string;
+  total: number;
+};
+
+export type SavedReceiptItem = {
+  id: string;
+  receiptId: string;
+  name: string;
+  quantity: number;
+  unitPrice: number;
+  amount: number;
+};
+
+export type ReceiptData = {
+  receipts: SavedReceipt[];
+  items: SavedReceiptItem[];
+};
+
 export type CardPayload = Omit<HouseholdCard, "id">;
 
 export type StatementPayload = {
@@ -59,6 +80,7 @@ export type BankData = {
 };
 
 export type FinanceStore = {
+  loadReceiptData: () => Promise<ReceiptData>;
   loadBankData: () => Promise<BankData>;
   saveReceipt: (payload: ReceiptPayload) => Promise<string>;
   saveCard: (payload: CardPayload) => Promise<HouseholdCard>;
@@ -73,6 +95,22 @@ type CardRow = {
   last_four: string;
 };
 
+type ReceiptRow = {
+  id: string;
+  merchant: string;
+  purchased_at: string;
+  total: string | number;
+};
+
+type ReceiptItemRow = {
+  id: string;
+  receipt_id: string;
+  name: string;
+  quantity: string | number;
+  unit_price: string | number;
+  amount: string | number;
+};
+
 const cardFromRow = (row: CardRow): HouseholdCard => ({
   id: row.id,
   issuer: row.issuer,
@@ -83,6 +121,32 @@ const cardFromRow = (row: CardRow): HouseholdCard => ({
 
 export function createFinanceStore(client: SupabaseClient): FinanceStore {
   return {
+    async loadReceiptData() {
+      const [receiptResult, itemResult] = await Promise.all([
+        client.from("receipts").select("id, merchant, purchased_at, total").order("purchased_at"),
+        client.from("receipt_items").select("id, receipt_id, name, quantity, unit_price, amount").order("position"),
+      ]);
+      if (receiptResult.error) throw receiptResult.error;
+      if (itemResult.error) throw itemResult.error;
+
+      return {
+        receipts: (receiptResult.data as ReceiptRow[]).map((row) => ({
+          id: row.id,
+          merchant: row.merchant,
+          purchasedAt: row.purchased_at,
+          total: Number(row.total),
+        })),
+        items: (itemResult.data as ReceiptItemRow[]).map((row) => ({
+          id: row.id,
+          receiptId: row.receipt_id,
+          name: row.name,
+          quantity: Number(row.quantity),
+          unitPrice: Number(row.unit_price),
+          amount: Number(row.amount),
+        })),
+      };
+    },
+
     async loadBankData() {
       const [cardResult, statementResult, transactionResult] = await Promise.all([
         client.from("cards").select("id, issuer, nickname, holder, last_four").order("created_at"),

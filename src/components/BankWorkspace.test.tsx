@@ -101,6 +101,7 @@ describe("BankWorkspace", () => {
 
   it("loads the household bank history from Supabase", async () => {
     const store: FinanceStore = {
+      loadReceiptData: vi.fn().mockResolvedValue({ receipts: [], items: [] }),
       loadBankData: vi.fn().mockResolvedValue({
         cards: [{ id: "card-1", issuer: "BNZ", nickname: "Everyday", holder: "Andrea", lastFour: "0245" }],
         statements: [{ id: "statement-1", cardId: "card-1", fileName: "YouMoney.pdf", fingerprint: "a".repeat(64), periodStart: "2026-07-25", periodEnd: "2026-08-24", status: "Imported" }],
@@ -122,6 +123,7 @@ describe("BankWorkspace", () => {
   it("filters household spending by card holder", async () => {
     const user = userEvent.setup();
     const store: FinanceStore = {
+      loadReceiptData: vi.fn().mockResolvedValue({ receipts: [], items: [] }),
       loadBankData: vi.fn().mockResolvedValue({
         cards: [
           { id: "daniel-card", issuer: "BNZ", nickname: "Daniel Visa", holder: "Daniel", lastFour: "1234" },

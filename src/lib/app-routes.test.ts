@@ -4,6 +4,9 @@ import { appPath, viewFromPath } from "./app-routes";
 describe("application routes", () => {
   it("prefixes routes with the GitHub Pages base path", () => {
     expect(appPath("/bank", "/finance-tracker/")).toBe("/finance-tracker/bank");
+    expect(appPath("/manifest.webmanifest", "/finance-tracker")).toBe(
+      "/finance-tracker/manifest.webmanifest",
+    );
     expect(appPath("/receipts", "/")).toBe("/receipts");
   });
 

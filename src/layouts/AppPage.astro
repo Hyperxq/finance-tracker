@@ -2,9 +2,8 @@
 import "@fontsource-variable/manrope";
 import "@fontsource/ibm-plex-mono/400.css";
 import { App } from "../components/App";
+import { appPath } from "../lib/app-routes";
 import "../styles/global.css";
-
-const baseUrl = import.meta.env.BASE_URL;
 ---
 
 <!doctype html>
@@ -19,9 +18,9 @@ const baseUrl = import.meta.env.BASE_URL;
     <meta name="apple-mobile-web-app-status-bar-style" content="black" />
     <meta name="apple-mobile-web-app-title" content="Night Ledger" />
     <meta name="description" content="Private household receipt and bank spending tracker." />
-    <link rel="manifest" href={`${baseUrl}manifest.webmanifest`} />
-    <link rel="icon" sizes="192x192" href={`${baseUrl}icons/icon-192.png`} />
-    <link rel="apple-touch-icon" sizes="180x180" href={`${baseUrl}icons/apple-touch-icon.png`} />
+    <link rel="manifest" href={appPath("/manifest.webmanifest")} />
+    <link rel="icon" sizes="192x192" href={appPath("/icons/icon-192.png")} />
+    <link rel="apple-touch-icon" sizes="180x180" href={appPath("/icons/apple-touch-icon.png")} />
     <title>Night Ledger · Household finance</title>
   </head>
   <body>

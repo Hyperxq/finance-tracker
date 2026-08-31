@@ -26,12 +26,14 @@ describe("installable app configuration", () => {
     );
   });
 
-  it("links base-aware install metadata for browsers and iOS", () => {
+  it("builds install metadata paths through the deployment route helper", () => {
     const layout = projectFile("src/layouts/AppPage.astro");
 
     expect(layout).toContain('rel="manifest"');
     expect(layout).toContain('rel="apple-touch-icon"');
     expect(layout).toContain('name="apple-mobile-web-app-capable"');
-    expect(layout).toContain("import.meta.env.BASE_URL");
+    expect(layout).toContain('appPath("/manifest.webmanifest")');
+    expect(layout).toContain('appPath("/icons/icon-192.png")');
+    expect(layout).toContain('appPath("/icons/apple-touch-icon.png")');
   });
 });

@@ -13,5 +13,8 @@ describe("GitHub Pages Supabase configuration", () => {
     expect(workflow).toContain(
       "PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ vars.PUBLIC_SUPABASE_PUBLISHABLE_KEY }}",
     );
+    expect(workflow).toContain(
+      "PUBLIC_RECEIPT_OCR_PROVIDER: ${{ vars.PUBLIC_RECEIPT_OCR_PROVIDER }}",
+    );
   });
 });

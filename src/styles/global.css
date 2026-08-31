@@ -284,6 +284,23 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   line-height: 1.5;
 }
 
+.ocr-provider-control {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  margin-top: 32px;
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+.ocr-provider-control div { display: grid; gap: 4px; }
+.ocr-provider-control span { color: var(--accent); font-size: 11px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; }
+.ocr-provider-control small { color: var(--muted); }
+.ocr-provider-control button { min-height: 44px; flex: 0 0 auto; }
+.ocr-provider-control button:disabled { cursor: not-allowed; opacity: 0.42; }
+
 .upload-panel {
   display: flex;
   flex-direction: column;
@@ -1084,6 +1101,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .primary-nav a { justify-content: center; min-height: 46px; padding: 0 10px; font-size: 13px; }
   .page-header p, .review-header p { margin-bottom: 22px; }
   .page-header h1, .review-header h1 { font-size: 52px; }
+  .ocr-provider-control { align-items: stretch; flex-direction: column; gap: 14px; }
   .upload-panel { min-height: 350px; margin-top: 34px; padding: 42px 20px; }
   .receipt-photo-actions { grid-template-columns: minmax(0, 1fr); }
   .receipt-summary { padding: 18px; }

@@ -22,11 +22,19 @@ import { BankWorkspace } from "./BankWorkspace";
 import { DashboardWorkspace } from "./DashboardWorkspace";
 import { appPath, viewFromPath, type AppView } from "../lib/app-routes";
 import { parseReceiptText, type ParsedReceipt, type ReceiptItem } from "../lib/receipt-parser";
-import { recognizeReceipt, type OcrProgress, type RecognizeReceipt } from "../lib/receipt-ocr";
+import type { OcrProgress, RecognizeReceipt } from "../lib/receipt-ocr";
+import {
+  configuredReceiptOcrProvider,
+  createReceiptRecognizer,
+  defaultReceiptRecognizers,
+  type ReceiptOcrProvider,
+  type ReceiptRecognizers,
+} from "../lib/receipt-ocr-strategy";
 import type { FinanceStore } from "../lib/finance-store";
 
 type ReceiptWorkspaceProps = {
   recognize?: RecognizeReceipt;
+  ocrRecognizers?: ReceiptRecognizers;
   memberName?: string;
   memberEmail?: string;
   onSignOut?: () => void;
@@ -64,7 +72,8 @@ function displayDate(purchasedAt: string) {
 }
 
 export function ReceiptWorkspace({
-  recognize = recognizeReceipt,
+  recognize,
+  ocrRecognizers = defaultReceiptRecognizers,
   memberName = "Daniel & Andrea",
   memberEmail = "Household workspace",
   onSignOut,
@@ -85,7 +94,22 @@ export function ReceiptWorkspace({
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
   const [activeView, setActiveView] = useState<AppView>("receipts");
+  const [ocrProvider, setOcrProvider] = useState<ReceiptOcrProvider>(configuredReceiptOcrProvider);
   const activeViewRef = useRef(activeView);
+  const activeRecognizer = useMemo(
+    () => recognize ?? createReceiptRecognizer(
+      ocrProvider,
+      ocrRecognizers,
+      () => setOcrProvider("local"),
+    ),
+    [ocrProvider, ocrRecognizers, recognize],
+  );
+  const cloudOcrSelected = ocrProvider === "google" || ocrProvider === "google-first";
+  const ocrProviderName = ocrProvider === "local"
+    ? "On-device OCR"
+    : ocrProvider === "local-first"
+      ? "On-device OCR with Google backup"
+      : "Google Cloud Vision";
 
   const changeView = useCallback((nextView: AppView) => {
     if (activeViewRef.current === nextView) return;
@@ -187,7 +211,7 @@ export function ReceiptWorkspace({
     setProgress({ label: "Preparing image", progress: 2 });
 
     try {
-      const result = await recognize(file, setProgress);
+      const result = await activeRecognizer(file, setProgress);
       const parsed = parseReceiptText(result.text);
       if (parsed.items.length === 0) {
         throw new Error(result.text.trim()
@@ -324,6 +348,26 @@ export function ReceiptWorkspace({
               <h2>Photograph the full receipt. Review every item before it joins your household.</h2>
             </header>
 
+            <div className="ocr-provider-control">
+              <div>
+                <span>OCR provider</span>
+                <strong>{ocrProviderName}</strong>
+                <small>{cloudOcrSelected
+                  ? "Falls back to on-device OCR if the cloud service is unavailable."
+                  : ocrProvider === "local-first"
+                    ? "Uses Google only when the on-device result needs help."
+                    : "Receipt text stays on this device."}</small>
+              </div>
+              <button
+                className="secondary-button"
+                type="button"
+                disabled={progress !== null}
+                onClick={() => setOcrProvider(cloudOcrSelected ? "local" : "google-first")}
+              >
+                {cloudOcrSelected ? "Use local OCR" : "Use Google OCR"}
+              </button>
+            </div>
+
             <div
               className={`upload-panel${progress ? " is-processing" : ""}`}
               onDragOver={(event) => event.preventDefault()}
@@ -336,7 +380,7 @@ export function ReceiptWorkspace({
               <div className="upload-icon"><FileImageIcon size={38} weight="light" /></div>
               {progress ? (
                 <div className="progress-content" aria-live="polite">
-                  <span className="eyebrow">Local OCR</span>
+                  <span className="eyebrow">Receipt OCR</span>
                   <h3>{progress.label}</h3>
                   <p>{progress.progress}% complete</p>
                   <div className="progress-track"><span style={{ width: `${progress.progress}%` }} /></div>
@@ -377,7 +421,7 @@ export function ReceiptWorkspace({
 
             <div className="privacy-note">
               <ShieldCheckIcon size={23} weight="duotone" />
-              <div><strong>Your photo stays on this device</strong><span>This spike runs OCR inside your browser and does not upload the receipt.</span></div>
+              <div><strong>Your receipt photo is not stored</strong><span>It is processed only to extract the editable information shown here.</span></div>
             </div>
 
             {error && (

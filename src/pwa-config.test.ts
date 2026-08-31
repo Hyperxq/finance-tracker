@@ -20,8 +20,8 @@ describe("installable app configuration", () => {
     });
     expect(manifest.icons).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ src: "icons/icon-192.png", sizes: "192x192", type: "image/png" }),
-        expect.objectContaining({ src: "icons/icon-512.png", sizes: "512x512", type: "image/png" }),
+        expect.objectContaining({ src: "icons/icon-192.png?v=2", sizes: "192x192", type: "image/png" }),
+        expect.objectContaining({ src: "icons/icon-512.png?v=2", sizes: "512x512", type: "image/png" }),
       ]),
     );
   });
@@ -33,7 +33,7 @@ describe("installable app configuration", () => {
     expect(layout).toContain('rel="apple-touch-icon"');
     expect(layout).toContain('name="apple-mobile-web-app-capable"');
     expect(layout).toContain('appPath("/manifest.webmanifest")');
-    expect(layout).toContain('appPath("/icons/icon-192.png")');
-    expect(layout).toContain('appPath("/icons/apple-touch-icon.png")');
+    expect(layout).toContain('appPath("/icons/icon-192.png?v=2")');
+    expect(layout).toContain('appPath("/icons/apple-touch-icon.png?v=2")');
   });
 });

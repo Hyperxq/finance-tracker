@@ -105,11 +105,13 @@ describe("BankWorkspace", () => {
       loadBankData: vi.fn().mockResolvedValue({
         cards: [{ id: "card-1", issuer: "BNZ", nickname: "Everyday", holder: "Andrea", lastFour: "0245" }],
         statements: [{ id: "statement-1", cardId: "card-1", fileName: "YouMoney.pdf", fingerprint: "a".repeat(64), periodStart: "2026-07-25", periodEnd: "2026-08-24", status: "Imported" }],
-        transactions: [{ id: "transaction-1", cardId: "card-1", date: "2026-08-03", merchant: "WOOLWORTHS", category: "Groceries", amount: 40 }],
+        transactions: [{ id: "transaction-1", statementId: "statement-1", cardId: "card-1", date: "2026-08-03", merchant: "WOOLWORTHS", category: "Groceries", amount: 40 }],
       }),
       saveReceipt: vi.fn(),
+      deleteReceipt: vi.fn(),
       saveCard: vi.fn(),
       importStatement: vi.fn(),
+      deleteStatement: vi.fn(),
     };
 
     render(<BankWorkspace store={store} />);
@@ -118,6 +120,55 @@ describe("BankWorkspace", () => {
     expect(screen.getByRole("region", { name: /bank summary/i })).toHaveTextContent("NZ$40.00");
     expect(screen.getByRole("region", { name: /household cards/i })).toHaveTextContent("Everyday");
     expect(screen.getByRole("region", { name: /monthly bank statements/i })).toHaveTextContent("YouMoney.pdf");
+  });
+
+  it("deletes an imported statement and its transactions after confirmation", async () => {
+    const user = userEvent.setup();
+    const deleteStatement = vi.fn().mockResolvedValue(undefined);
+    const store = {
+      loadBankData: vi.fn().mockResolvedValue({
+        cards: [{ id: "card-1", issuer: "BNZ", nickname: "Everyday", holder: "Andrea", lastFour: "0245" }],
+        statements: [{ id: "statement-1", cardId: "card-1", fileName: "YouMoney.pdf", fingerprint: "a".repeat(64), periodStart: "2026-07-25", periodEnd: "2026-08-24", status: "Imported" }],
+        transactions: [{ id: "transaction-1", statementId: "statement-1", cardId: "card-1", date: "2026-08-03", merchant: "WOOLWORTHS", category: "Groceries", amount: 40 }],
+      }),
+      deleteStatement,
+    } as unknown as FinanceStore;
+    render(<BankWorkspace store={store} />);
+    const statements = await screen.findByRole("region", { name: /monthly bank statements/i });
+
+    await user.click(screen.getByRole("button", { name: "Date range" }));
+    expect(screen.getByRole("button", { name: "Date range" })).toHaveAttribute("aria-pressed", "true");
+    await user.click(within(statements).getByRole("button", { name: "Delete YouMoney.pdf" }));
+
+    const dialog = screen.getByRole("dialog", { name: "Delete bank statement?" });
+    expect(within(dialog).getByText("1 imported transaction will be permanently deleted.")).toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: "Delete statement" }));
+
+    await waitFor(() => expect(deleteStatement).toHaveBeenCalledWith("statement-1"));
+    expect(within(statements).queryByText("YouMoney.pdf")).not.toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("YouMoney.pdf and 1 transaction deleted.");
+    expect(screen.getByRole("region", { name: /bank summary/i })).toHaveTextContent("NZ$0.00");
+    expect(screen.getByRole("button", { name: "Month" })).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("keeps an imported statement when deletion fails", async () => {
+    const user = userEvent.setup();
+    const store = {
+      loadBankData: vi.fn().mockResolvedValue({
+        cards: [{ id: "card-1", issuer: "BNZ", nickname: "Everyday", holder: "Andrea", lastFour: "0245" }],
+        statements: [{ id: "statement-1", cardId: "card-1", fileName: "YouMoney.pdf", fingerprint: "a".repeat(64), periodStart: "2026-07-25", periodEnd: "2026-08-24", status: "Imported" }],
+        transactions: [],
+      }),
+      deleteStatement: vi.fn().mockRejectedValue(new Error("offline")),
+    } as unknown as FinanceStore;
+    render(<BankWorkspace store={store} />);
+    const statements = await screen.findByRole("region", { name: /monthly bank statements/i });
+
+    await user.click(within(statements).getByRole("button", { name: "Delete YouMoney.pdf" }));
+    await user.click(within(screen.getByRole("dialog", { name: "Delete bank statement?" })).getByRole("button", { name: "Delete statement" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("The statement could not be deleted");
+    expect(within(statements).getByText("YouMoney.pdf")).toBeInTheDocument();
   });
 
   it("filters household spending by card holder", async () => {
@@ -131,13 +182,15 @@ describe("BankWorkspace", () => {
         ],
         statements: [],
         transactions: [
-          { id: "daniel-spend", cardId: "daniel-card", date: "2026-08-03", merchant: "CAFE", category: "Eating out", amount: 30 },
-          { id: "andrea-spend", cardId: "andrea-card", date: "2026-08-04", merchant: "WOOLWORTHS", category: "Groceries", amount: 40 },
+          { id: "daniel-spend", statementId: "daniel-statement", cardId: "daniel-card", date: "2026-08-03", merchant: "CAFE", category: "Eating out", amount: 30 },
+          { id: "andrea-spend", statementId: "andrea-statement", cardId: "andrea-card", date: "2026-08-04", merchant: "WOOLWORTHS", category: "Groceries", amount: 40 },
         ],
       }),
       saveReceipt: vi.fn(),
+      deleteReceipt: vi.fn(),
       saveCard: vi.fn(),
       importStatement: vi.fn(),
+      deleteStatement: vi.fn(),
     };
     render(<BankWorkspace memberName="Daniel" store={store} />);
 

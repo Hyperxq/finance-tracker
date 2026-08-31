@@ -20,6 +20,7 @@ export type BankStatement = {
 
 export type BankTransaction = {
   id: string;
+  statementId: string;
   cardId: string;
   date: string;
   merchant: string;
@@ -70,7 +71,7 @@ export type StatementPayload = {
   fingerprint: string;
   periodStart: string;
   periodEnd: string;
-  transactions: Array<Omit<BankTransaction, "id" | "cardId">>;
+  transactions: Array<Omit<BankTransaction, "id" | "statementId" | "cardId">>;
 };
 
 export type BankData = {
@@ -83,8 +84,10 @@ export type FinanceStore = {
   loadReceiptData: () => Promise<ReceiptData>;
   loadBankData: () => Promise<BankData>;
   saveReceipt: (payload: ReceiptPayload) => Promise<string>;
+  deleteReceipt: (receiptId: string) => Promise<void>;
   saveCard: (payload: CardPayload) => Promise<HouseholdCard>;
   importStatement: (payload: StatementPayload) => Promise<string>;
+  deleteStatement: (statementId: string) => Promise<void>;
 };
 
 type CardRow = {
@@ -151,7 +154,7 @@ export function createFinanceStore(client: SupabaseClient): FinanceStore {
       const [cardResult, statementResult, transactionResult] = await Promise.all([
         client.from("cards").select("id, issuer, nickname, holder, last_four").order("created_at"),
         client.from("bank_statements").select("id, card_id, file_name, fingerprint, period_start, period_end, status").order("period_end", { ascending: false }),
-        client.from("bank_transactions").select("id, card_id, transaction_date, merchant, category, amount").order("transaction_date", { ascending: false }),
+        client.from("bank_transactions").select("id, statement_id, card_id, transaction_date, merchant, category, amount").order("transaction_date", { ascending: false }),
       ]);
       if (cardResult.error) throw cardResult.error;
       if (statementResult.error) throw statementResult.error;
@@ -170,6 +173,7 @@ export function createFinanceStore(client: SupabaseClient): FinanceStore {
         })),
         transactions: transactionResult.data.map((row) => ({
           id: row.id,
+          statementId: row.statement_id,
           cardId: row.card_id,
           date: row.transaction_date,
           merchant: row.merchant,
@@ -185,6 +189,11 @@ export function createFinanceStore(client: SupabaseClient): FinanceStore {
       return data as string;
     },
 
+    async deleteReceipt(receiptId) {
+      const { error } = await client.from("receipts").delete().eq("id", receiptId);
+      if (error) throw error;
+    },
+
     async saveCard(payload) {
       const { data, error } = await client.rpc("save_card", { payload });
       if (error) throw error;
@@ -195,6 +204,11 @@ export function createFinanceStore(client: SupabaseClient): FinanceStore {
       const { data, error } = await client.rpc("import_bank_statement", { payload });
       if (error) throw error;
       return data as string;
+    },
+
+    async deleteStatement(statementId) {
+      const { error } = await client.from("bank_statements").delete().eq("id", statementId);
+      if (error) throw error;
     },
   };
 }

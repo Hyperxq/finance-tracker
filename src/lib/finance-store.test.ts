@@ -79,4 +79,29 @@ describe("createFinanceStore", () => {
     await expect(store.importStatement(statement)).resolves.toBe("statement-1");
     expect(rpc).toHaveBeenCalledWith("import_bank_statement", { payload: statement });
   });
+
+  it("deletes parent records so their imported details cascade", async () => {
+    const receiptEq = vi.fn().mockResolvedValue({ error: null });
+    const statementEq = vi.fn().mockResolvedValue({ error: null });
+    const receipts = { delete: vi.fn().mockReturnValue({ eq: receiptEq }) };
+    const statements = { delete: vi.fn().mockReturnValue({ eq: statementEq }) };
+    const from = vi.fn((table: string) => table === "receipts" ? receipts : statements);
+    const store = createFinanceStore({ from } as unknown as SupabaseClient);
+
+    await expect(store.deleteReceipt("receipt-1")).resolves.toBeUndefined();
+    await expect(store.deleteStatement("statement-1")).resolves.toBeUndefined();
+
+    expect(receiptEq).toHaveBeenCalledWith("id", "receipt-1");
+    expect(statementEq).toHaveBeenCalledWith("id", "statement-1");
+  });
+
+  it("surfaces a failed parent deletion", async () => {
+    const failure = new Error("offline");
+    const eq = vi.fn().mockResolvedValue({ error: failure });
+    const store = createFinanceStore({
+      from: vi.fn().mockReturnValue({ delete: vi.fn().mockReturnValue({ eq }) }),
+    } as unknown as SupabaseClient);
+
+    await expect(store.deleteReceipt("receipt-1")).rejects.toBe(failure);
+  });
 });

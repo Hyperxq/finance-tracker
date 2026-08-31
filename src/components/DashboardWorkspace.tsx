@@ -5,6 +5,7 @@ import {
   MagnifyingGlassIcon,
   ReceiptIcon,
   StorefrontIcon,
+  TrashIcon,
   XIcon,
 } from "@phosphor-icons/react";
 import { Fragment, useEffect, useMemo, useState } from "react";
@@ -17,9 +18,10 @@ import {
 } from "../lib/receipt-analytics";
 import type { FinanceStore, ReceiptData } from "../lib/finance-store";
 import { downloadReceiptCsv } from "../lib/receipt-csv";
+import { DeleteConfirmationDialog } from "./DeleteConfirmationDialog";
 
 type DashboardWorkspaceProps = {
-  store?: Pick<FinanceStore, "loadReceiptData">;
+  store?: Pick<FinanceStore, "loadReceiptData" | "deleteReceipt">;
   today?: string;
   exportCsv?: (data: ReceiptData, filename: string) => void;
 };
@@ -27,6 +29,12 @@ type DashboardWorkspaceProps = {
 const emptyData: ReceiptData = { receipts: [], items: [] };
 const money = (value: number) => `NZ$${value.toFixed(2)}`;
 const productColors = ["#a78bfa", "#f0abfc", "#7dd3fc"];
+const receiptDate = (purchasedAt: string) => new Intl.DateTimeFormat("en-NZ", {
+  day: "numeric",
+  month: "short",
+  year: "numeric",
+  timeZone: "UTC",
+}).format(new Date(`${purchasedAt.slice(0, 10)}T12:00:00Z`));
 
 function todayInNewZealand() {
   const parts = new Intl.DateTimeFormat("en-NZ", {
@@ -118,6 +126,10 @@ export function DashboardWorkspace({ store, today = todayInNewZealand(), exportC
   const [customEnd, setCustomEnd] = useState(today);
   const [productSearch, setProductSearch] = useState("");
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
+  const [receiptToDelete, setReceiptToDelete] = useState<ReceiptData["receipts"][number] | null>(null);
+  const [isDeletingReceipt, setIsDeletingReceipt] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
+  const [deleteNotice, setDeleteNotice] = useState("");
 
   useEffect(() => {
     if (!store) return;
@@ -171,6 +183,9 @@ export function DashboardWorkspace({ store, today = todayInNewZealand(), exportC
     ? Math.round(((currentWeek.total - previousWeek.total) / previousWeek.total) * 100)
     : null;
   const rangeIsInvalid = customStart > customEnd;
+  const receiptDeleteItemCount = receiptToDelete
+    ? data.items.filter((item) => item.receiptId === receiptToDelete.id).length
+    : 0;
 
   const choosePeriod = (nextPeriod: ReceiptPeriod | "custom") => {
     setPeriod(nextPeriod);
@@ -182,6 +197,24 @@ export function DashboardWorkspace({ store, today = todayInNewZealand(), exportC
       if (current.includes(key)) return current.length === 1 ? current : current.filter((product) => product !== key);
       return current.length < 3 ? [...current, key] : current;
     });
+  };
+  const deleteReceipt = async () => {
+    if (!receiptToDelete || isDeletingReceipt) return;
+    setIsDeletingReceipt(true);
+    setDeleteError("");
+    try {
+      await store?.deleteReceipt(receiptToDelete.id);
+      setData((current) => ({
+        receipts: current.receipts.filter((receipt) => receipt.id !== receiptToDelete.id),
+        items: current.items.filter((item) => item.receiptId !== receiptToDelete.id),
+      }));
+      setReceiptToDelete(null);
+      setDeleteNotice("Receipt deleted. Your grocery insights are up to date.");
+    } catch {
+      setDeleteError("The receipt could not be deleted. Check your connection and try again.");
+    } finally {
+      setIsDeletingReceipt(false);
+    }
   };
 
   return (
@@ -233,6 +266,7 @@ export function DashboardWorkspace({ store, today = todayInNewZealand(), exportC
       </header>
 
       {error && <div className="dashboard-error" role="alert">{error}</div>}
+      {deleteNotice && <div className="dashboard-delete-notice" role="status">{deleteNotice}</div>}
       {loading ? (
         <div className="dashboard-loading" aria-live="polite">Loading confirmed receipts…</div>
       ) : !data.receipts.length ? (
@@ -341,7 +375,38 @@ export function DashboardWorkspace({ store, today = todayInNewZealand(), exportC
               {selectedProductDetails.map((product, index) => <span key={product.key}><i style={{ background: productColors[index] }} />{product.label}</span>)}
             </div>
           </section>
+
+          <section className="dashboard-card receipt-history-card" aria-label="Receipt history">
+            <div className="dashboard-card-heading">
+              <div><span>Confirmed data</span><h3>Receipt history</h3></div>
+              <ReceiptIcon size={27} weight="duotone" />
+            </div>
+            <div className="receipt-history-list">
+              {data.receipts.slice().sort((left, right) => right.purchasedAt.localeCompare(left.purchasedAt)).map((receipt) => (
+                <article key={receipt.id}>
+                  <div>
+                    <strong title={receipt.merchant}>{receipt.merchant}</strong>
+                    <span>{receiptDate(receipt.purchasedAt)} · {data.items.filter((item) => item.receiptId === receipt.id).length} items</span>
+                  </div>
+                  <strong>{money(receipt.total)}</strong>
+                  <button type="button" aria-label={`Delete ${receipt.merchant} receipt from ${receiptDate(receipt.purchasedAt)}`} onClick={() => { setDeleteError(""); setDeleteNotice(""); setReceiptToDelete(receipt); }}><TrashIcon size={18} /></button>
+                </article>
+              ))}
+            </div>
+          </section>
         </>
+      )}
+      {receiptToDelete && (
+        <DeleteConfirmationDialog
+          title="Delete receipt?"
+          subject={`${receiptToDelete.merchant} · ${receiptDate(receiptToDelete.purchasedAt)} · ${money(receiptToDelete.total)}`}
+          consequence={`${receiptDeleteItemCount} ${receiptDeleteItemCount === 1 ? "extracted item" : "extracted items"} will be permanently deleted.`}
+          confirmLabel="Delete receipt"
+          busy={isDeletingReceipt}
+          error={deleteError}
+          onCancel={() => { setReceiptToDelete(null); setDeleteError(""); }}
+          onConfirm={() => void deleteReceipt()}
+        />
       )}
     </section>
   );

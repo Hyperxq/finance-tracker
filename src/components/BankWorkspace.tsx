@@ -7,6 +7,7 @@ import {
   FilePdfIcon,
   PlusIcon,
   StorefrontIcon,
+  TrashIcon,
   UploadSimpleIcon,
   WarningCircleIcon,
   XIcon,
@@ -20,6 +21,7 @@ import type {
   FinanceStore,
   HouseholdCard,
 } from "../lib/finance-store";
+import { DeleteConfirmationDialog } from "./DeleteConfirmationDialog";
 
 type ReviewTransaction = BnzTransaction & { included: boolean };
 
@@ -78,6 +80,9 @@ export function BankWorkspace({ extractStatement = extractBnzStatement, memberNa
   const [cardError, setCardError] = useState("");
   const [isSavingCard, setIsSavingCard] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
+  const [statementToDelete, setStatementToDelete] = useState<Statement | null>(null);
+  const [isDeletingStatement, setIsDeletingStatement] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
 
   useEffect(() => {
     if (!store) return;
@@ -102,6 +107,9 @@ export function BankWorkspace({ extractStatement = extractBnzStatement, memberNa
   const availableHolders = useMemo(() => [...new Set(cards.map((card) => card.holder))].sort((left, right) => left.localeCompare(right)), [cards]);
   const cardHolderById = useMemo(() => new Map(cards.map((card) => [card.id, card.holder])), [cards]);
   const rangeIsInvalid = Boolean(rangeStart && rangeEnd && rangeStart > rangeEnd);
+  const statementDeleteTransactionCount = statementToDelete
+    ? allTransactions.filter((transaction) => transaction.statementId === statementToDelete.id).length
+    : 0;
   const transactions = useMemo(
     () => allTransactions.filter((transaction) => {
       const withinPeriod = periodMode === "month"
@@ -272,6 +280,7 @@ export function BankWorkspace({ extractStatement = extractBnzStatement, memberNa
     }
     const imported = includedReviewTransactions.map<Transaction>((transaction, index) => ({
       id: `statement-${importedAt}-${index}`,
+      statementId,
       cardId: statementReview.cardId,
       date: transaction.date,
       merchant: transaction.merchant.trim(),
@@ -306,6 +315,30 @@ export function BankWorkspace({ extractStatement = extractBnzStatement, memberNa
     setSelectedCard(statement.cardId);
     setImportNotice(`Showing activity from ${statement.fileName}.`);
     scrollToImportedActivity(importedActivityRef.current);
+  };
+
+  const deleteStatement = async () => {
+    if (!statementToDelete || isDeletingStatement) return;
+    setIsDeletingStatement(true);
+    setDeleteError("");
+    try {
+      await store?.deleteStatement(statementToDelete.id);
+      const remainingTransactions = allTransactions.filter((transaction) => transaction.statementId !== statementToDelete.id);
+      const remainingMonths = [...new Set(remainingTransactions.map((transaction) => transaction.date.slice(0, 7)))].sort().reverse();
+      setStatements((current) => current.filter((statement) => statement.id !== statementToDelete.id));
+      setAllTransactions(remainingTransactions);
+      setSelectedMonth((current) => remainingMonths.includes(current) ? current : remainingMonths[0] ?? "");
+      setPeriodMode("month");
+      setRangeStart("");
+      setRangeEnd("");
+      if (remainingTransactions.length === 0) setSelectedCard("all");
+      setStatementToDelete(null);
+      setImportNotice(`${statementToDelete.fileName} and ${statementDeleteTransactionCount} ${statementDeleteTransactionCount === 1 ? "transaction" : "transactions"} deleted.`);
+    } catch {
+      setDeleteError("The statement could not be deleted. Check your connection and try again.");
+    } finally {
+      setIsDeletingStatement(false);
+    }
   };
 
   return (
@@ -386,7 +419,7 @@ export function BankWorkspace({ extractStatement = extractBnzStatement, memberNa
             {statements.map((statement) => {
               const card = cards.find((candidate) => candidate.id === statement.cardId);
               const active = periodMode === "range" && rangeStart === statement.periodStart && rangeEnd === statement.periodEnd && selectedCard === statement.cardId;
-              return <button className={active ? "is-active" : ""} type="button" aria-label={`View ${statement.fileName} activity`} key={statement.id} onClick={() => showStatementActivity(statement)}><FilePdfIcon size={24} /><div><strong>{statement.fileName}</strong><span>{card?.nickname ?? "Unknown card"} · {shortDate(statement.periodStart)} – {shortDate(statement.periodEnd)} · {statement.status}</span></div></button>;
+              return <div className="statement-list-row" key={statement.id}><button className={`statement-view${active ? " is-active" : ""}`} type="button" aria-label={`View ${statement.fileName} activity`} onClick={() => showStatementActivity(statement)}><FilePdfIcon size={24} /><div><strong>{statement.fileName}</strong><span>{card?.nickname ?? "Unknown card"} · {shortDate(statement.periodStart)} – {shortDate(statement.periodEnd)} · {statement.status}</span></div></button><button className="statement-delete" type="button" aria-label={`Delete ${statement.fileName}`} onClick={() => { setDeleteError(""); setImportNotice(""); setStatementToDelete(statement); }}><TrashIcon size={18} /></button></div>;
             })}
           </div>
           {!statements.length && <div className="data-empty statement-empty"><FilePdfIcon size={28} weight="duotone" /><strong>No statements imported</strong><span>Choose the original PDF downloaded from BNZ.</span></div>}
@@ -461,6 +494,18 @@ export function BankWorkspace({ extractStatement = extractBnzStatement, memberNa
             </form>
           </div>
         </div>
+      )}
+      {statementToDelete && (
+        <DeleteConfirmationDialog
+          title="Delete bank statement?"
+          subject={`${statementToDelete.fileName} · ${shortDate(statementToDelete.periodStart)} – ${shortDate(statementToDelete.periodEnd)}`}
+          consequence={`${statementDeleteTransactionCount} imported ${statementDeleteTransactionCount === 1 ? "transaction" : "transactions"} will be permanently deleted.`}
+          confirmLabel="Delete statement"
+          busy={isDeletingStatement}
+          error={deleteError}
+          onCancel={() => { setStatementToDelete(null); setDeleteError(""); }}
+          onConfirm={() => void deleteStatement()}
+        />
       )}
     </section>
   );

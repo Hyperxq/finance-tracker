@@ -19,7 +19,10 @@ const DATA: ReceiptData = {
   ],
 };
 
-const storeWith = (data: ReceiptData) => ({ loadReceiptData: vi.fn().mockResolvedValue(data) });
+const storeWith = (data: ReceiptData) => ({
+  loadReceiptData: vi.fn().mockResolvedValue(data),
+  deleteReceipt: vi.fn().mockResolvedValue(undefined),
+});
 
 describe("DashboardWorkspace", () => {
   it("starts with this year, monthly context, and real receipt summaries", async () => {
@@ -33,7 +36,7 @@ describe("DashboardWorkspace", () => {
     const summary = screen.getByRole("region", { name: "Receipt summary" });
     expect(within(summary).getByText("Value Milk 2L")).toBeInTheDocument();
     expect(within(summary).getByText("3 weeks")).toBeInTheDocument();
-    expect(screen.getByText("NZ$80.00", { selector: "strong" })).toBeInTheDocument();
+    expect(within(summary).getByText("NZ$80.00", { selector: "strong" })).toBeInTheDocument();
   });
 
   it("switches between weekly and monthly chart grouping", async () => {
@@ -72,6 +75,37 @@ describe("DashboardWorkspace", () => {
     expect(exportCsv).toHaveBeenCalledWith(DATA, "night-ledger-receipts-2026-08-31.csv");
   });
 
+  it("deletes a confirmed receipt and all of its extracted items after confirmation", async () => {
+    const user = userEvent.setup();
+    const deleteReceipt = vi.fn().mockResolvedValue(undefined);
+    const store = { ...storeWith(DATA), deleteReceipt };
+    render(<DashboardWorkspace store={store} today="2026-08-31" />);
+    const history = await screen.findByRole("region", { name: "Receipt history" });
+
+    await user.click(within(history).getByRole("button", { name: "Delete PAK'nSAVE receipt from 20 Jul 2026" }));
+
+    const dialog = screen.getByRole("dialog", { name: "Delete receipt?" });
+    expect(within(dialog).getByText("1 extracted item will be permanently deleted.")).toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: "Delete receipt" }));
+
+    await waitFor(() => expect(deleteReceipt).toHaveBeenCalledWith("receipt-1"));
+    expect(within(history).queryByText("20 Jul 2026")).not.toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("Receipt deleted. Your grocery insights are up to date.");
+  });
+
+  it("keeps a confirmed receipt when deletion fails", async () => {
+    const user = userEvent.setup();
+    const store = { ...storeWith(DATA), deleteReceipt: vi.fn().mockRejectedValue(new Error("offline")) };
+    render(<DashboardWorkspace store={store} today="2026-08-31" />);
+    const history = await screen.findByRole("region", { name: "Receipt history" });
+
+    await user.click(within(history).getByRole("button", { name: "Delete PAK'nSAVE receipt from 20 Jul 2026" }));
+    await user.click(within(screen.getByRole("dialog", { name: "Delete receipt?" })).getByRole("button", { name: "Delete receipt" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("The receipt could not be deleted");
+    expect(within(history).getByText("20 Jul 2026", { exact: false })).toBeInTheDocument();
+  });
+
   it("guides the household when no confirmed receipts exist", async () => {
     render(<DashboardWorkspace store={storeWith({ receipts: [], items: [] })} today="2026-08-31" />);
 
@@ -80,7 +114,10 @@ describe("DashboardWorkspace", () => {
   });
 
   it("shows a recoverable load error", async () => {
-    const store = { loadReceiptData: vi.fn().mockRejectedValue(new Error("offline")) };
+    const store = {
+      loadReceiptData: vi.fn().mockRejectedValue(new Error("offline")),
+      deleteReceipt: vi.fn().mockResolvedValue(undefined),
+    };
     render(<DashboardWorkspace store={store} today="2026-08-31" />);
 
     await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("Receipt insights could not be loaded"));

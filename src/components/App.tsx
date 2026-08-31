@@ -1,5 +1,6 @@
-import { GoogleLogoIcon, LockKeyIcon, ShieldCheckIcon } from "@phosphor-icons/react";
+import { GoogleLogoIcon, ShieldCheckIcon } from "@phosphor-icons/react";
 import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
+import { appPath } from "../lib/app-routes";
 import { createHouseholdAuth, type HouseholdAccess, type HouseholdAuth } from "../lib/household-auth";
 import { createFinanceStore } from "../lib/finance-store";
 import { getSupabaseClient } from "../lib/supabase";
@@ -11,6 +12,7 @@ type AppProps = {
 };
 
 const oauthErrorKeys = ["error", "error_code", "error_description", "sb"];
+const logoPath = appPath("/icons/icon-192.png?v=2");
 
 function consumeOAuthError() {
   if (typeof window === "undefined") return "";
@@ -118,7 +120,7 @@ export function App({ auth, workspace }: AppProps) {
   return (
     <main className="auth-shell">
       <section className="auth-card" aria-live="polite">
-        <div className="auth-mark"><LockKeyIcon size={34} weight="duotone" /></div>
+        <div className="auth-mark"><img src={logoPath} alt="Night Ledger logo" width="66" height="66" /></div>
         <p className="eyebrow">Private household ledger</p>
         {!access && !visibleError ? (
           <>

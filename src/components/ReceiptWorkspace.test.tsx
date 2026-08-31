@@ -32,6 +32,16 @@ describe("ReceiptWorkspace", () => {
     Reflect.deleteProperty(document, "startViewTransition");
   });
 
+  it("uses the app icon as the visible Night Ledger brand", () => {
+    render(<ReceiptWorkspace />);
+
+    expect(screen.getByRole("img", { name: "Night Ledger logo" })).toHaveAttribute(
+      "src",
+      "/icons/icon-192.png?v=2",
+    );
+    expect(screen.getByText("Night Ledger")).toBeInTheDocument();
+  });
+
   it("uses a view transition to keep receipt and bank navigation continuous", async () => {
     const user = userEvent.setup();
     const startViewTransition = vi.fn((update: () => void) => {

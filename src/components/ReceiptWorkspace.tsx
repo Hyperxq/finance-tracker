@@ -46,6 +46,7 @@ const money = (value: number) => `NZ$${value.toFixed(2)}`;
 const dashboardPath = appPath("/dashboard");
 const receiptsPath = appPath("/receipts");
 const bankPath = appPath("/bank");
+const brandLogoPath = appPath("/icons/icon-192.png?v=2");
 
 function displayMerchant(merchant: string) {
   const normalized = merchant.replace(/^PAK\s+N\s+SAVE/i, "PAK’nSAVE");
@@ -280,6 +281,7 @@ export function ReceiptWorkspace({
     <div className="app-shell">
       <aside className="sidebar">
         <div className="brand">
+          <img className="brand-mark" src={brandLogoPath} alt="Night Ledger logo" width="44" height="44" />
           <div>
             <strong>Night Ledger</strong>
             <span>Shared finances, sorted.</span>

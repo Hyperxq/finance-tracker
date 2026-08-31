@@ -25,6 +25,10 @@ describe("App authentication", () => {
     const auth = householdAuth({ status: "signed-out" });
     render(<App auth={auth} workspace={workspace()} />);
 
+    expect(await screen.findByRole("img", { name: "Night Ledger logo" })).toHaveAttribute(
+      "src",
+      "/icons/icon-192.png?v=2",
+    );
     await userEvent.click(await screen.findByRole("button", { name: /continue with google/i }));
 
     expect(auth.signIn).toHaveBeenCalledOnce();

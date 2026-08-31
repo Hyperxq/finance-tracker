@@ -22,6 +22,7 @@ const ACCOUNT_PATTERN = /(?:ACNT|ACCT|ACCOUNT)\s*#?\s*(?<receiptNumber>\d+)/i;
 const DATE_PATTERN = /\b(?<date>\d{1,2}\/\d{1,2}\/\d{2,4})\b/;
 const OCR_CURRENCY = String.raw`[$§£]?`;
 const OCR_MONEY_VALUE = String.raw`(?:\d+[.,]\s*\d{2}|[.,]\s*\d{2}|\d+\s+\d{2}|\d{2})`;
+const OCR_WEIGHT_UNIT = String.raw`K[GQY3A9]`;
 const TOTAL_PATTERNS = [
   new RegExp(String.raw`Total\s+including\s+G[S5][T1I]\s+${OCR_CURRENCY}(?<total>${OCR_MONEY_VALUE})`, "i"),
   new RegExp(String.raw`(?:#\s*)?\d+\s+TOTAL\s+${OCR_CURRENCY}(?<total>${OCR_MONEY_VALUE})`, "i"),
@@ -32,12 +33,13 @@ const TOTAL_PATTERNS = [
 const PAYMENT_PATTERN = new RegExp(String.raw`^(?:EFTPOS|VISA|CHEQUE)\b.*?${OCR_CURRENCY}(?<total>${OCR_MONEY_VALUE})\s*$`, "i");
 const LEGACY_ITEM_PATTERN = new RegExp(String.raw`^(?<name>.+?)\s+${OCR_CURRENCY}(?<amount>${OCR_MONEY_VALUE})\s*$`, "i");
 const WEIGHTED_ITEM_PATTERN = new RegExp(
-  String.raw`^(?<weight>\d+[.,]\d{3})\s*K[GQ]\s*@\s*${OCR_CURRENCY}(?<unitPrice>\d+[.,]\d{2})\s*\/?K[GQ]\s+${OCR_CURRENCY}(?<amount>\d+[.,]\d{2})$`,
+  String.raw`^(?<weight>\d+[.,]\d{3})\s*${OCR_WEIGHT_UNIT}\s*(?:@|[§8])?\s*${OCR_CURRENCY}(?<unitPrice>\d+[.,]\d{2})\s*\/?${OCR_WEIGHT_UNIT}\s+${OCR_CURRENCY}(?<amount>\d+(?:[.,]\d{1,2})?)$`,
   "i",
 );
 const OCR_PRICE_PATTERN = /[$§£](\d+(?:[.,]\s*\d{1,2})?)/g;
-const NON_ITEM_PATTERN = /^(?:ACNT|ACCT|ACCOUNT|BALANCE|CASH|CHANGE|DATE|GST|OPERATOR|PHONE|REC(?:EIPT)?|ROUNDING|STICKY\s+CLUB|SUB\s+TOTAL|TAX\s+INVOICE|TOTAL)\b/i;
+const NON_ITEM_PATTERN = /^(?:ACNT|ACCT|ACCOUNT|BALANCE|CASH|CHANGE|DATE|GST|OPERATOR|PH|PHONE|REC(?:EIPT)?|ROUNDING|STICKY\s+CLUB|SUB\s+TOTAL|TAX\s+INVOICE|TOTAL)\b/i;
 const ITEM_SECTION_END_PATTERN = /^(?:\d+\s+)?BALANCE\s+[DO0]UE\b/i;
+const AMOUNT_ONLY_PATTERN = new RegExp(String.raw`^${OCR_CURRENCY}(?<total>${OCR_MONEY_VALUE})$`, "i");
 
 const money = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
 
@@ -60,14 +62,17 @@ function parseOcrMoney(rawValue: string) {
 
 function parseOcrQuantity(rawValue: string) {
   const digits = rawValue.replace(/[iIl]/g, "1").replace(/\D/g, "");
+  const atSubstitution = digits.match(/^(?<quantity>[1-9])[08]$/);
+  if (atSubstitution?.groups) return Number(atSubstitution.groups.quantity);
   const quantity = Number(digits || 1);
   return quantity > 9 ? 1 : quantity;
 }
 
 function parseItemLine(line: string, maximumAmount = Number.POSITIVE_INFINITY): ReceiptItem | null {
-  if (NON_ITEM_PATTERN.test(line)) return null;
+  const normalizedLine = line.replace(/([$§£])\/(?=[.,]\d{2})/g, (_, currency: string) => `${currency}7`);
+  if (NON_ITEM_PATTERN.test(normalizedLine)) return null;
 
-  const exactMatch = line.match(ITEM_PATTERN);
+  const exactMatch = normalizedLine.match(ITEM_PATTERN);
   if (exactMatch?.groups) {
     return {
       name: exactMatch.groups.name.trim(),
@@ -77,9 +82,9 @@ function parseItemLine(line: string, maximumAmount = Number.POSITIVE_INFINITY): 
     };
   }
 
-  const prices = [...line.matchAll(OCR_PRICE_PATTERN)];
+  const prices = [...normalizedLine.matchAll(OCR_PRICE_PATTERN)];
   if (prices.length >= 2 && prices[0].index !== undefined) {
-    const prefix = line.slice(0, prices[0].index).trim();
+    const prefix = normalizedLine.slice(0, prices[0].index).trim();
     const prefixMatch = prefix.match(/^(?<name>.+)\s+(?<quantity>\S+)$/);
     if (!prefixMatch?.groups) return null;
 
@@ -98,11 +103,11 @@ function parseItemLine(line: string, maximumAmount = Number.POSITIVE_INFINITY): 
     };
   }
 
-  const legacyMatch = line.match(LEGACY_ITEM_PATTERN);
+  const legacyMatch = normalizedLine.match(LEGACY_ITEM_PATTERN);
   if (!legacyMatch?.groups || !/[a-z]/i.test(legacyMatch.groups.name)) return null;
 
   let amount = parseOcrMoney(legacyMatch.groups.amount);
-  if (amount > maximumAmount && !/[$§£]/.test(line)) {
+  if (amount > maximumAmount && !/[$§£]/.test(normalizedLine)) {
     amount = parseOcrMoney(legacyMatch.groups.amount.slice(1));
   }
   if (amount <= 0 || amount > maximumAmount) return null;
@@ -113,6 +118,30 @@ function parseItemLine(line: string, maximumAmount = Number.POSITIVE_INFINITY): 
     unitPrice: amount,
     amount,
   };
+}
+
+function parseContinuationItem(name: string, line: string, maximumAmount: number): ReceiptItem | null {
+  const prices = [...line.matchAll(OCR_PRICE_PATTERN)];
+  if (prices.length < 2 || prices[0].index === undefined) return null;
+
+  const unitPrice = parseOcrMoney(prices[0][1]);
+  if (unitPrice <= 0) return null;
+  const parsedAmount = parseOcrMoney(prices.at(-1)?.[1] ?? "0");
+  let quantity = parseOcrQuantity(line.slice(0, prices[0].index));
+  const inferredQuantity = Math.round(parsedAmount / unitPrice);
+  if (
+    inferredQuantity >= 1 &&
+    inferredQuantity <= 9 &&
+    Math.abs(money(inferredQuantity * unitPrice) - parsedAmount) <= 0.12
+  ) quantity = inferredQuantity;
+
+  const expectedAmount = money(quantity * unitPrice);
+  const amount = quantity > 1 && Math.abs(parsedAmount - expectedAmount) > Math.max(0.1, unitPrice * 0.25)
+    ? expectedAmount
+    : parsedAmount;
+  if (amount <= 0 || amount > maximumAmount) return null;
+
+  return { name: name.trim(), quantity, unitPrice, amount };
 }
 
 function findTotal(lines: string[]) {
@@ -132,6 +161,14 @@ function findTotal(lines: string[]) {
     }
   }
 
+  for (const [index, line] of lines.entries()) {
+    if (!ITEM_SECTION_END_PATTERN.test(line)) continue;
+    for (const amountLine of lines.slice(index + 1, index + 3)) {
+      const match = amountLine.match(AMOUNT_ONLY_PATTERN);
+      if (match?.groups) return { index, total: parseOcrMoney(match.groups.total) };
+    }
+  }
+
   return { index: lines.length, total: 0 };
 }
 
@@ -145,11 +182,14 @@ function parseItemLines(lines: string[], maximumAmount: number) {
       index > 0 &&
       [...lines[index - 1].matchAll(OCR_PRICE_PATTERN)].length === 0
     ) {
+      const quantity = parseOcrMoney(weightedMatch.groups.weight);
+      const unitPrice = parseOcrMoney(weightedMatch.groups.unitPrice);
+      const rawAmount = weightedMatch.groups.amount;
       items.push({
         name: lines[index - 1],
-        quantity: parseOcrMoney(weightedMatch.groups.weight),
-        unitPrice: parseOcrMoney(weightedMatch.groups.unitPrice),
-        amount: parseOcrMoney(weightedMatch.groups.amount),
+        quantity,
+        unitPrice,
+        amount: /[.,]\d{2}$/.test(rawAmount) ? parseOcrMoney(rawAmount) : money(quantity * unitPrice),
       });
       continue;
     }
@@ -158,9 +198,10 @@ function parseItemLines(lines: string[], maximumAmount: number) {
     const prefix = firstPrice?.index === undefined ? "" : line.slice(0, firstPrice.index).trim();
     const isContinuation = index > 0
       && [...line.matchAll(OCR_PRICE_PATTERN)].length >= 2
-      && /^\S{1,3}$/.test(prefix);
+      && !/[a-z]{3}/i.test(prefix)
+      && [...lines[index - 1].matchAll(OCR_PRICE_PATTERN)].length === 0;
     const item = isContinuation
-      ? parseItemLine(`${lines[index - 1]} ${line}`, maximumAmount)
+      ? parseContinuationItem(lines[index - 1], line, maximumAmount)
       : parseItemLine(line, maximumAmount);
     if (item) items.push(item);
   }

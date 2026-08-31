@@ -131,6 +131,25 @@ $26.90
 CHANGE
 `;
 
+const REAL_PHONE_PHOTO_OCR = `
+PAKNhSAVE
+PH: (09) 820-0218
+EDMONDS FLOUR HIGH GRADE 1.5 KG $3.39
+AVOCADO
+A 448 $0.99 $3.96
+BANANAS
+0.910 K9 8 $3.59/K9 $3.27
+PANS GOURMET POTATOES 1KG
+2 Q $4.49 $68.98
+BRAZILIAN DELIGHT
+0.210 Ky § $33.00/Kg $6.9
+SELECT DATES
+0.160 Ka $14.00/Ka 2.4
+NZ CHICKEN BREAST SKINLESS $/.99
+7 BALANCE DUE $36.76
+EFTPOS $36.76
+`;
+
 describe("parseReceiptText", () => {
   it("extracts metadata and every item from the PAK'nSAVE sample", () => {
     const receipt = parseReceiptText(PAKNSAVE_SAMPLE);
@@ -255,5 +274,34 @@ PAK N SAVE RICCARTON
       { name: "NZ BEEF MINCE", quantity: 1, unitPrice: 12.52, amount: 12.52 },
     ]);
     expect(receipt.receiptTotal).toBe(73.11);
+  });
+
+  it("recovers quantities and weighted products from a real phone photo", () => {
+    const receipt = parseReceiptText(REAL_PHONE_PHOTO_OCR);
+
+    expect(receipt.items).toEqual([
+      { name: "EDMONDS FLOUR HIGH GRADE 1.5 KG", quantity: 1, unitPrice: 3.39, amount: 3.39 },
+      { name: "AVOCADO", quantity: 4, unitPrice: 0.99, amount: 3.96 },
+      { name: "BANANAS", quantity: 0.91, unitPrice: 3.59, amount: 3.27 },
+      { name: "PANS GOURMET POTATOES 1KG", quantity: 2, unitPrice: 4.49, amount: 8.98 },
+      { name: "BRAZILIAN DELIGHT", quantity: 0.21, unitPrice: 33, amount: 6.93 },
+      { name: "SELECT DATES", quantity: 0.16, unitPrice: 14, amount: 2.24 },
+      { name: "NZ CHICKEN BREAST SKINLESS", quantity: 1, unitPrice: 7.99, amount: 7.99 },
+    ]);
+    expect(receipt.calculatedTotal).toBe(36.76);
+    expect(receipt.matched).toBe(true);
+  });
+
+  it("recovers a balance due amount split onto the following OCR line", () => {
+    const receipt = parseReceiptText(`
+PAKNhSAVE
+BREAD $3.39
+1 BALANCE DUE
+$3.39
+EFTPOS $3.39
+`);
+
+    expect(receipt.receiptTotal).toBe(3.39);
+    expect(receipt.matched).toBe(true);
   });
 });

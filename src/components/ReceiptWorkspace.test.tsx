@@ -32,6 +32,44 @@ describe("ReceiptWorkspace", () => {
     Reflect.deleteProperty(document, "startViewTransition");
   });
 
+  it("starts with Google OCR and lets the user switch to local OCR", async () => {
+    const user = userEvent.setup();
+    const google = vi.fn().mockResolvedValue({ text: OCR_TEXT, confidence: 96 });
+    const local = vi.fn().mockResolvedValue({ text: OCR_TEXT, confidence: 82 });
+    render(<ReceiptWorkspace ocrRecognizers={{ google, local }} />);
+
+    expect(screen.getByText("Google Cloud Vision")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Use local OCR" }));
+    expect(screen.getByText("On-device OCR")).toBeInTheDocument();
+
+    await user.upload(
+      screen.getByLabelText(/choose receipt photo/i),
+      new File(["receipt"], "receipt.png", { type: "image/png" }),
+    );
+
+    expect(await screen.findByRole("heading", { name: /review receipt/i })).toBeInTheDocument();
+    expect(local).toHaveBeenCalledOnce();
+    expect(google).not.toHaveBeenCalled();
+  });
+
+  it("falls back to local OCR when Google Cloud is unavailable", async () => {
+    const user = userEvent.setup();
+    const google = vi.fn().mockRejectedValue(new Error("billing disabled"));
+    const local = vi.fn().mockResolvedValue({ text: OCR_TEXT, confidence: 82 });
+    render(<ReceiptWorkspace ocrRecognizers={{ google, local }} />);
+
+    await user.upload(
+      screen.getByLabelText(/choose receipt photo/i),
+      new File(["receipt"], "receipt.png", { type: "image/png" }),
+    );
+
+    expect(await screen.findByRole("heading", { name: /review receipt/i })).toBeInTheDocument();
+    expect(google).toHaveBeenCalledOnce();
+    expect(local).toHaveBeenCalledOnce();
+    await user.click(screen.getByRole("button", { name: "Retake photo" }));
+    expect(screen.getByText("On-device OCR")).toBeInTheDocument();
+  });
+
   it("uses the app icon as the visible Night Ledger brand", () => {
     render(<ReceiptWorkspace />);
 
@@ -135,7 +173,7 @@ describe("ReceiptWorkspace", () => {
     consoleError.mockRestore();
   });
 
-  it("starts with a private local photo upload", () => {
+  it("explains that receipt photos are processed without being stored", () => {
     render(<ReceiptWorkspace />);
 
     expect(screen.getByText("Daniel & Andrea")).toBeInTheDocument();
@@ -147,7 +185,8 @@ describe("ReceiptWorkspace", () => {
     expect(cameraInput).toHaveAttribute("capture", "environment");
     expect(libraryInput).toHaveAttribute("accept", "image/*");
     expect(libraryInput).not.toHaveAttribute("capture");
-    expect(screen.getByText(/stays on this device/i)).toBeInTheDocument();
+    expect(screen.getByText(/receipt photo is not stored/i)).toBeInTheDocument();
+    expect(screen.getByText(/processed only to extract/i)).toBeInTheDocument();
   });
 
   it("shows an editable reconciled review after OCR completes", async () => {
